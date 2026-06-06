@@ -2,10 +2,10 @@
  * 本地存储服务
  * 负责面试记录、用户配置等数据的本地持久化
  *
- * 注意：Rokid AIUI 环境可能使用不同的存储方式
- * 当前使用 localStorage 实现，后续可替换为框架提供的存储能力
+ * 使用 Rokid AIUI 的 wx.setStorageSync/wx.getStorageSync API
  */
 
+import wx from 'wx';
 import { STORAGE_KEYS } from '../utils/constants.js';
 import { generateId, deepClone } from '../utils/format.js';
 
@@ -14,20 +14,8 @@ import { generateId, deepClone } from '../utils/format.js';
  */
 class StorageService {
   constructor() {
-    // TODO: 根据 Rokid AIUI 环境初始化存储
-    // 如果 Rokid 提供专用存储 API，在此处替换
-    this.storage = typeof localStorage !== 'undefined' ? localStorage : null;
-
-    // 内存缓存（当 localStorage 不可用时使用）
-    this.memoryStorage = new Map();
-  }
-
-  /**
-   * 获取存储实例
-   * @returns {Storage|Map} 存储实例
-   */
-  getStorage() {
-    return this.storage || this.memoryStorage;
+    // 内存缓存（用于快速访问）
+    this.cache = new Map();
   }
 
   /**
@@ -38,11 +26,8 @@ class StorageService {
   set(key, value) {
     try {
       const serialized = JSON.stringify(value);
-      if (this.storage) {
-        this.storage.setItem(key, serialized);
-      } else {
-        this.memoryStorage.set(key, serialized);
-      }
+      wx.setStorageSync(key, serialized);
+      this.cache.set(key, value);
     } catch (error) {
       console.error(`[StorageService] 保存数据失败: ${key}`, error);
     }
@@ -56,17 +41,19 @@ class StorageService {
    */
   get(key, defaultValue = null) {
     try {
-      let serialized;
-      if (this.storage) {
-        serialized = this.storage.getItem(key);
-      } else {
-        serialized = this.memoryStorage.get(key);
+      // 先检查缓存
+      if (this.cache.has(key)) {
+        return this.cache.get(key);
       }
 
-      if (serialized === null || serialized === undefined) {
+      const serialized = wx.getStorageSync(key);
+      if (serialized === null || serialized === undefined || serialized === '') {
         return defaultValue;
       }
-      return JSON.parse(serialized);
+
+      const value = JSON.parse(serialized);
+      this.cache.set(key, value);
+      return value;
     } catch (error) {
       console.error(`[StorageService] 读取数据失败: ${key}`, error);
       return defaultValue;
@@ -79,11 +66,8 @@ class StorageService {
    */
   remove(key) {
     try {
-      if (this.storage) {
-        this.storage.removeItem(key);
-      } else {
-        this.memoryStorage.delete(key);
-      }
+      wx.removeStorageSync(key);
+      this.cache.delete(key);
     } catch (error) {
       console.error(`[StorageService] 删除数据失败: ${key}`, error);
     }
@@ -94,11 +78,8 @@ class StorageService {
    */
   clear() {
     try {
-      if (this.storage) {
-        this.storage.clear();
-      } else {
-        this.memoryStorage.clear();
-      }
+      wx.clearStorageSync();
+      this.cache.clear();
     } catch (error) {
       console.error('[StorageService] 清空数据失败', error);
     }

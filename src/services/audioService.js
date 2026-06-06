@@ -2,12 +2,10 @@
  * 音频录音服务
  * 负责面试过程中的音频录制
  *
- * 注意：
- * 1. 优先使用 Rokid AIUI 提供的录音能力
- * 2. 如果不可用，使用 Web Audio API 或 mock 实现
- * 3. 所有录音操作必须在用户明确授权后进行
+ * 使用 Rokid AIUI 的 wx.media.getRecorderManager() API
  */
 
+import wx from 'wx';
 import { INTERVIEW_STATUS } from '../utils/constants.js';
 
 /**
@@ -16,14 +14,64 @@ import { INTERVIEW_STATUS } from '../utils/constants.js';
 class AudioService {
   constructor() {
     this.status = INTERVIEW_STATUS.IDLE;
-    this.mediaRecorder = null;
-    this.audioChunks = [];
+    this.recorderManager = null;
     this.startTime = null;
-    this.audioBlob = null;
+    this.audioFilePath = null;
 
-    // Rokid AIUI 录音适配器
-    // TODO: 接入 Rokid AIUI 真实录音 API
-    this.rokidRecorder = null;
+    // 初始化录音管理器
+    this.initRecorderManager();
+  }
+
+  /**
+   * 初始化录音管理器
+   */
+  initRecorderManager() {
+    try {
+      this.recorderManager = wx.media.getRecorderManager();
+
+      if (!this.recorderManager) {
+        console.warn('[AudioService] 无法获取 RecorderManager');
+        return;
+      }
+
+      // 监听录音开始事件
+      this.recorderManager.onStart(() => {
+        console.log('[AudioService] 录音开始');
+        this.status = INTERVIEW_STATUS.RECORDING;
+        this.startTime = Date.now();
+      });
+
+      // 监听录音停止事件
+      this.recorderManager.onStop((payload) => {
+        console.log('[AudioService] 录音停止', payload);
+        this.status = INTERVIEW_STATUS.COMPLETED;
+        if (payload && payload.tempFilePath) {
+          this.audioFilePath = payload.tempFilePath;
+        }
+      });
+
+      // 监听录音错误事件
+      this.recorderManager.onError((payload) => {
+        console.error('[AudioService] 录音错误', payload);
+        this.status = INTERVIEW_STATUS.IDLE;
+      });
+
+      // 监听录音暂停事件
+      this.recorderManager.onPause(() => {
+        console.log('[AudioService] 录音暂停');
+        this.status = INTERVIEW_STATUS.PAUSED;
+      });
+
+      // 监听录音恢复事件
+      this.recorderManager.onResume(() => {
+        console.log('[AudioService] 录音恢复');
+        this.status = INTERVIEW_STATUS.RECORDING;
+      });
+
+      console.log('[AudioService] RecorderManager 初始化成功');
+    } catch (error) {
+      console.error('[AudioService] 初始化 RecorderManager 失败:', error);
+    }
   }
 
   /**
@@ -31,39 +79,8 @@ class AudioService {
    * @returns {Promise<boolean>} 是否初始化成功
    */
   async init() {
-    try {
-      // TODO: 检查 Rokid AIUI 录音能力是否可用
-      // if (window.RokidAIUI && window.RokidAIUI.Audio) {
-      //   this.rokidRecorder = new window.RokidAIUI.Audio.Recorder();
-      //   return true;
-      // }
-
-      // 使用 Web Audio API 作为备选方案
-      if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.mediaRecorder = new MediaRecorder(stream, {
-          mimeType: 'audio/webm;codecs=opus',
-        });
-
-        this.mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            this.audioChunks.push(event.data);
-          }
-        };
-
-        this.mediaRecorder.onstop = () => {
-          this.audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        };
-
-        return true;
-      }
-
-      console.warn('[AudioService] 无法初始化录音设备，将使用 Mock 模式');
-      return true;
-    } catch (error) {
-      console.error('[AudioService] 初始化失败:', error);
-      return false;
-    }
+    // RecorderManager 已在构造函数中初始化
+    return this.recorderManager !== null;
   }
 
   /**
@@ -77,29 +94,23 @@ class AudioService {
         return false;
       }
 
-      // 清空之前的录音数据
-      this.audioChunks = [];
-      this.audioBlob = null;
-      this.startTime = Date.now();
-
-      // TODO: 使用 Rokid AIUI 录音 API
-      // if (this.rokidRecorder) {
-      //   await this.rokidRecorder.start();
-      //   this.status = INTERVIEW_STATUS.RECORDING;
-      //   return true;
-      // }
-
-      // 使用 Web Audio API
-      if (this.mediaRecorder) {
-        this.mediaRecorder.start(1000); // 每秒收集一次数据
-        this.status = INTERVIEW_STATUS.RECORDING;
-        console.log('[AudioService] 开始录音');
-        return true;
+      if (!this.recorderManager) {
+        console.error('[AudioService] RecorderManager 不可用');
+        return false;
       }
 
-      // Mock 模式
-      this.status = INTERVIEW_STATUS.RECORDING;
-      console.log('[AudioService] Mock 模式：开始录音');
+      // 清空之前的录音数据
+      this.audioFilePath = null;
+      this.startTime = Date.now();
+
+      // 开始录音
+      this.recorderManager.start({
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        format: 'pcm',
+      });
+
+      console.log('[AudioService] 开始录音');
       return true;
     } catch (error) {
       console.error('[AudioService] 开始录音失败:', error);
@@ -109,42 +120,84 @@ class AudioService {
 
   /**
    * 停止录音
-   * @returns {Promise<Blob|null>} 录音文件 Blob
+   * @returns {Promise<string|null>} 录音文件路径
    */
   async stopRecording() {
     try {
-      if (this.status !== INTERVIEW_STATUS.RECORDING) {
+      if (this.status !== INTERVIEW_STATUS.RECORDING && this.status !== INTERVIEW_STATUS.PAUSED) {
         console.warn('[AudioService] 当前未在录音');
         return null;
       }
 
-      // TODO: 使用 Rokid AIUI 录音 API
-      // if (this.rokidRecorder) {
-      //   const audioData = await this.rokidRecorder.stop();
-      //   this.status = INTERVIEW_STATUS.COMPLETED;
-      //   return audioData;
-      // }
-
-      // 使用 Web Audio API
-      if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-        return new Promise((resolve) => {
-          this.mediaRecorder.onstop = () => {
-            this.audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-            this.status = INTERVIEW_STATUS.COMPLETED;
-            console.log('[AudioService] 停止录音');
-            resolve(this.audioBlob);
-          };
-          this.mediaRecorder.stop();
-        });
+      if (!this.recorderManager) {
+        console.error('[AudioService] RecorderManager 不可用');
+        return null;
       }
 
-      // Mock 模式
-      this.status = INTERVIEW_STATUS.COMPLETED;
-      console.log('[AudioService] Mock 模式：停止录音');
-      return new Blob(['mock audio data'], { type: 'audio/webm' });
+      return new Promise((resolve) => {
+        // 监听停止事件获取文件路径
+        const originalOnStop = this.recorderManager.onStop;
+        this.recorderManager.onStop((payload) => {
+          this.status = INTERVIEW_STATUS.COMPLETED;
+          if (payload && payload.tempFilePath) {
+            this.audioFilePath = payload.tempFilePath;
+          }
+          console.log('[AudioService] 停止录音');
+          resolve(this.audioFilePath);
+        });
+
+        // 停止录音
+        this.recorderManager.stop();
+      });
     } catch (error) {
       console.error('[AudioService] 停止录音失败:', error);
       return null;
+    }
+  }
+
+  /**
+   * 暂停录音
+   * @returns {Promise<boolean>} 是否暂停成功
+   */
+  async pauseRecording() {
+    try {
+      if (this.status !== INTERVIEW_STATUS.RECORDING) {
+        console.warn('[AudioService] 当前未在录音');
+        return false;
+      }
+
+      if (!this.recorderManager) {
+        return false;
+      }
+
+      this.recorderManager.pause();
+      return true;
+    } catch (error) {
+      console.error('[AudioService] 暂停录音失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 恢复录音
+   * @returns {Promise<boolean>} 是否恢复成功
+   */
+  async resumeRecording() {
+    try {
+      if (this.status !== INTERVIEW_STATUS.PAUSED) {
+        console.warn('[AudioService] 当前未暂停');
+        return false;
+      }
+
+      if (!this.recorderManager) {
+        return false;
+      }
+
+      this.recorderManager.resume();
+      return true;
+    } catch (error) {
+      console.error('[AudioService] 恢复录音失败:', error);
+      return false;
     }
   }
 
@@ -156,8 +209,10 @@ class AudioService {
     return {
       status: this.status,
       isRecording: this.status === INTERVIEW_STATUS.RECORDING,
+      isPaused: this.status === INTERVIEW_STATUS.PAUSED,
       duration: this.startTime ? Date.now() - this.startTime : 0,
-      hasAudio: this.audioBlob !== null,
+      hasAudio: this.audioFilePath !== null,
+      audioFilePath: this.audioFilePath,
     };
   }
 
@@ -171,11 +226,11 @@ class AudioService {
   }
 
   /**
-   * 获取录音 Blob
-   * @returns {Blob|null} 录音 Blob
+   * 获取录音文件路径
+   * @returns {string|null} 录音文件路径
    */
-  getAudioBlob() {
-    return this.audioBlob;
+  getAudioFilePath() {
+    return this.audioFilePath;
   }
 
   /**
@@ -183,17 +238,16 @@ class AudioService {
    */
   reset() {
     this.status = INTERVIEW_STATUS.IDLE;
-    this.audioChunks = [];
     this.startTime = null;
-    this.audioBlob = null;
+    this.audioFilePath = null;
   }
 
   /**
    * 释放资源
    */
   dispose() {
-    if (this.mediaRecorder && this.mediaRecorder.stream) {
-      this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    if (this.recorderManager && this.status === INTERVIEW_STATUS.RECORDING) {
+      this.recorderManager.stop();
     }
     this.reset();
   }

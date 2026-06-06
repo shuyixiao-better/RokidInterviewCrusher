@@ -16,6 +16,7 @@ export const APP_CONFIG = {
 export const INTERVIEW_STATUS = {
   IDLE: 'idle',
   RECORDING: 'recording',
+  PAUSED: 'paused',
   ANALYZING: 'analyzing',
   WAITING: 'waiting',
   COMPLETED: 'completed',
@@ -42,11 +43,11 @@ export const QUESTION_TYPES = {
 
 // 岗位方向
 export const TARGET_ROLES = [
-  { id: 'java-backend', name: 'Java 后端', keywords: ['Spring', '微服务', '分布式', '数据库'] },
-  { id: 'ai-developer', name: 'AI 应用开发', keywords: ['机器学习', '深度学习', 'NLP', '大模型'] },
-  { id: 'solution-architect', name: '解决方案架构师', keywords: ['架构设计', '技术选型', '系统设计', '性能优化'] },
-  { id: 'frontend', name: '前端开发', keywords: ['React', 'Vue', 'TypeScript', '性能优化'] },
-  { id: 'product-manager', name: '产品经理', keywords: ['需求分析', '产品设计', '用户研究', '数据分析'] },
+  'Java 后端',
+  'AI 应用开发',
+  '解决方案架构师',
+  '前端开发',
+  '产品经理',
 ];
 
 // 默认技术栈
