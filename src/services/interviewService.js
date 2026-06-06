@@ -14,8 +14,7 @@ import speechService from './speechService.js';
 import aiService from './aiService.js';
 import storageService from './storageService.js';
 import { INTERVIEW_STATUS, QUESTION_KEYWORDS } from '../utils/constants.js';
-import { generateId, formatTime } from '../utils/format.js';
-import { getFullTranscriptText } from '../mock/mockInterviewTranscript.js';
+import { generateId } from '../utils/format.js';
 
 /**
  * 面试业务服务类
@@ -91,8 +90,11 @@ class InterviewService {
         endTime: null,
         targetRole: profile.targetRole,
         techStack: profile.techStack,
+        resumeKeywords: profile.resumeKeywords || [],
         questions: [],
         transcript: [],
+        transcriptText: '',
+        audioFilePath: '',
         status: 'recording',
       };
 
@@ -141,20 +143,18 @@ class InterviewService {
    * @param {Object} userProfile - 用户画像
    */
   async handleRecognizedText(text, isFinal, userProfile) {
-    // 只处理最终结果
     if (!isFinal) return;
+    const isQuestion = this.isInterviewQuestion(text);
 
-    // 添加到转写记录
     if (this.currentInterview) {
       this.currentInterview.transcript.push({
-        speaker: 'candidate', // 简化处理，实际需要区分说话人
+        speaker: isQuestion ? 'interviewer' : 'candidate',
         time: Date.now() - this.currentInterview.startTime,
         text: text,
       });
     }
 
-    // 判断是否是面试问题
-    if (this.isInterviewQuestion(text)) {
+    if (isQuestion) {
       console.log('[InterviewService] 检测到面试问题:', text);
 
       this.currentQuestion = text;
@@ -217,24 +217,32 @@ class InterviewService {
     try {
       this.updateStatus(INTERVIEW_STATUS.ANALYZING);
 
-      // 停止录音和语音识别
-      await audioService.stopRecording();
+      const audioFilePath = await audioService.stopRecording();
       await speechService.stopRealtimeTranscription();
 
-      // 更新面试记录
       if (this.currentInterview) {
         this.currentInterview.endTime = Date.now();
         this.currentInterview.duration = this.currentInterview.endTime - this.currentInterview.startTime;
         this.currentInterview.questions = this.questions;
+        this.currentInterview.audioFilePath = audioFilePath || '';
         this.currentInterview.status = 'completed';
       }
 
-      // 获取完整转写文本
-      const transcriptText = this.currentInterview
-        ? this.currentInterview.transcript.map(item => item.text).join('\n')
-        : '';
+      let transcriptText = '';
+      if (this.currentInterview && this.currentInterview.transcript.length) {
+        transcriptText = this.currentInterview.transcript
+          .map((item) => `${item.speaker === 'interviewer' ? '面试官' : '候选人'}：${item.text}`)
+          .join('\n\n');
+      }
 
-      // 调用 AI 生成复盘报告
+      if (!transcriptText) {
+        transcriptText = await speechService.transcribeAudio(audioFilePath);
+      }
+
+      if (this.currentInterview) {
+        this.currentInterview.transcriptText = transcriptText;
+      }
+
       let review = null;
       if (transcriptText) {
         try {
@@ -297,6 +305,10 @@ class InterviewService {
    */
   getQuestions() {
     return this.questions;
+  }
+
+  getSpeechStatus() {
+    return speechService.getStatus();
   }
 
   /**

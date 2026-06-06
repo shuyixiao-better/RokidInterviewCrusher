@@ -1,14 +1,13 @@
-<script def>
+<script type="application/json" def>
 {
   "navigationBarTitleText": "面试中",
-  "description": "面试进行中页面，显示录音状态、识别问题和关键词提示"
+  "description": "面试进行中页面，显示状态、识别问题和关键词提示"
 }
 </script>
 
 <script setup>
 import wx from 'wx';
 import interviewService from '../../src/services/interviewService.js';
-import audioService from '../../src/services/audioService.js';
 import storageService from '../../src/services/storageService.js';
 import { INTERVIEW_STATUS } from '../../src/utils/constants.js';
 import { formatDuration } from '../../src/utils/format.js';
@@ -21,11 +20,18 @@ export default {
     hints: [],
     warning: '',
     duration: '00:00',
-    durationTimer: null,
-    showComplianceTip: true,
+    hasStarted: false,
+    canStop: false,
+    modeText: 'Mock 识别',
+    complianceLines: [
+      '请确保获得面试相关方授权后再录音',
+      '仅用于训练、模拟与复盘',
+      '不支持隐藏录音或违规使用'
+    ],
   },
 
   onLoad() {
+    this.durationTimer = null;
     this.initInterview();
   },
 
@@ -33,36 +39,31 @@ export default {
     this.cleanup();
   },
 
-  /**
-   * 初始化面试
-   */
   async initInterview() {
     const profile = storageService.getUserProfile();
     await interviewService.init(profile);
+    const speechStatus = interviewService.getSpeechStatus();
+    this.setData({
+      modeText: speechStatus.mode === 'native' ? '原生识别' : 'Mock 识别',
+    });
   },
 
-  /**
-   * 开始面试
-   */
   async startInterview() {
-    // 显示合规提示
-    this.setData({ showComplianceTip: true });
-
     const success = await interviewService.startInterview();
-    if (success) {
-      this.setData({
-        status: INTERVIEW_STATUS.RECORDING,
-        statusText: '录音中',
-        showComplianceTip: false,
-      });
-      this.startDurationTimer();
-      this.listenForQuestions();
+    if (!success) {
+      return;
     }
+
+    this.setData({
+      hasStarted: true,
+      canStop: true,
+      status: INTERVIEW_STATUS.RECORDING,
+      statusText: '录音中',
+    });
+    this.startDurationTimer();
+    this.listenForQuestions();
   },
 
-  /**
-   * 监听识别到的问题
-   */
   listenForQuestions() {
     interviewService.onQuestionRecognized((question, hintData) => {
       this.setData({
@@ -70,27 +71,25 @@ export default {
         hints: hintData.hints || [],
         warning: hintData.warning || '',
         status: INTERVIEW_STATUS.ANALYZING,
-        statusText: '分析中',
+        statusText: '生成提示中',
+        canStop: true,
       });
 
-      // 短暂显示分析状态后恢复录音状态
       setTimeout(() => {
         if (this.data.status === INTERVIEW_STATUS.ANALYZING) {
           this.setData({
             status: INTERVIEW_STATUS.RECORDING,
             statusText: '录音中',
+            canStop: true,
           });
         }
-      }, 1500);
+      }, 1200);
     });
   },
 
-  /**
-   * 开始计时器
-   */
   startDurationTimer() {
     const startTime = Date.now();
-    this.data.durationTimer = setInterval(() => {
+    this.durationTimer = setInterval(() => {
       const elapsed = Date.now() - startTime;
       this.setData({
         duration: formatDuration(elapsed),
@@ -98,53 +97,35 @@ export default {
     }, 1000);
   },
 
-  /**
-   * 停止计时器
-   */
   stopDurationTimer() {
-    if (this.data.durationTimer) {
-      clearInterval(this.data.durationTimer);
-      this.data.durationTimer = null;
+    if (this.durationTimer) {
+      clearInterval(this.durationTimer);
+      this.durationTimer = null;
     }
   },
 
-  /**
-   * 结束面试
-   */
   async endInterview() {
     this.stopDurationTimer();
     this.setData({
       status: INTERVIEW_STATUS.COMPLETED,
-      statusText: '处理中',
+      statusText: '生成复盘中',
+      canStop: false,
     });
 
     const result = await interviewService.endInterview();
     if (result) {
-      // 跳转到复盘页面
-      wx.navigateTo({
-        url: '/pages/ReviewPage/index',
-      });
+      wx.navigateTo({ url: '/pages/ReviewPage/index' });
     }
   },
 
-  /**
-   * 确认开始录音（用户点击后）
-   */
   confirmStart() {
-    this.setData({ showComplianceTip: false });
     this.startInterview();
   },
 
-  /**
-   * 取消开始
-   */
   cancelStart() {
     wx.navigateBack();
   },
 
-  /**
-   * 清理资源
-   */
   cleanup() {
     this.stopDurationTimer();
     interviewService.cleanup();
@@ -154,73 +135,44 @@ export default {
 
 <page>
   <view class="container">
-    <!-- 合规提示弹窗 -->
-    <view ink:if="{{showComplianceTip}}" class="compliance-overlay">
-      <view class="compliance-dialog">
-        <text class="compliance-title">录音授权提示</text>
-        <text class="compliance-text">
-          开始录音前，请确保：
-        </text>
-        <text class="compliance-item">1. 已获得面试相关方授权</text>
-        <text class="compliance-item">2. 符合当地法律法规要求</text>
-        <text class="compliance-item">3. 遵守面试规则和约定</text>
-        <view class="compliance-actions">
-          <view class="btn-cancel" bindtap="cancelStart">
-            <text>取消</text>
-          </view>
-          <view class="btn-confirm" bindtap="confirmStart">
-            <text>确认开始</text>
-          </view>
+    <view class="summary-card">
+      <text class="page-title">面试训练中</text>
+      <text class="meta-line">状态 {{statusText}}</text>
+      <text class="meta-line">时长 {{duration}}</text>
+      <text class="meta-line">模式 {{modeText}}</text>
+    </view>
+
+    <view ink:if="{{!hasStarted}}" class="compliance-card">
+      <text class="section-title">开始前确认</text>
+      <view class="compliance-item" ink:for="{{complianceLines}}" ink:key="index">
+        <text class="compliance-text">{{item}}</text>
+      </view>
+      <view class="actions">
+        <button class="button-secondary" bindtap="cancelStart">取消</button>
+        <button class="button-primary" bindtap="confirmStart">确认开始</button>
+      </view>
+    </view>
+
+    <view ink:if="{{hasStarted}}" class="question-card">
+      <text class="section-title">当前问题</text>
+      <text ink:if="{{currentQuestion}}" class="question-text">{{currentQuestion}}</text>
+      <text ink:else class="placeholder-text">等待问题进入识别流...</text>
+    </view>
+
+    <view ink:if="{{hasStarted}}" class="hints-card">
+      <text class="section-title">关键词提示</text>
+      <view ink:if="{{hints.length > 0}}">
+        <view class="hint-row" ink:for="{{hints}}" ink:key="index">
+          <text class="hint-bullet">{{index + 1}}</text>
+          <text class="hint-text">{{item}}</text>
         </view>
+        <text ink:if="{{warning}}" class="warning-text">{{warning}}</text>
       </view>
+      <text ink:else class="placeholder-text">识别到问题后，这里只展示短提示卡片。</text>
     </view>
 
-    <!-- 状态栏 -->
-    <view class="status-bar">
-      <view class="status-indicator {{status === 'recording' ? 'recording' : ''}}">
-        <text class="status-dot"></text>
-        <text class="status-text">{{statusText}}</text>
-      </view>
-      <text class="duration">{{duration}}</text>
-    </view>
-
-    <!-- 当前问题 -->
-    <view ink:if="{{currentQuestion}}" class="question-section">
-      <text class="section-label">识别问题</text>
-      <text class="question-text">{{currentQuestion}}</text>
-    </view>
-
-    <!-- 关键词提示 -->
-    <view ink:if="{{hints.length > 0}}" class="hints-section">
-      <text class="section-label">答题提示</text>
-      <view class="hints-list">
-        <text ink:for="{{hints}}" ink:key="index" class="hint-item">{{item}}</text>
-      </view>
-      <text ink:if="{{warning}}" class="warning-text">{{warning}}</text>
-    </view>
-
-    <!-- 等待状态提示 -->
-    <view ink:if="{{!currentQuestion && status === 'recording'}}" class="waiting-section">
-      <text class="waiting-text">等待面试官提问...</text>
-    </view>
-
-    <!-- 操作按钮 -->
-    <view class="action-section">
-      <view
-        ink:if="{{status === 'idle'}}"
-        class="btn-start"
-        bindtap="confirmStart"
-      >
-        <text class="btn-text">开始面试</text>
-      </view>
-
-      <view
-        ink:if="{{status === 'recording' || status === 'analyzing'}}"
-        class="btn-stop"
-        bindtap="endInterview"
-      >
-        <text class="btn-text">结束面试</text>
-      </view>
+    <view ink:if="{{hasStarted && canStop}}" class="actions">
+      <button class="button-danger" bindtap="endInterview">结束面试</button>
     </view>
   </view>
 </page>
@@ -229,234 +181,101 @@ export default {
 .container {
   display: flex;
   flex-direction: column;
-  min-height: var(--app-height-min);
-  padding: var(--spacing-md);
-  background-color: var(--color-background);
+  width: var(--app-width, 480px);
+  min-height: var(--app-height-min, 120px);
+  max-height: var(--app-height-max, 380px);
+  padding: var(--spacing-md, 16px);
+  background-color: var(--color-background, #000000);
+  gap: 12px;
 }
 
-/* 合规提示弹窗 */
-.compliance-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.compliance-dialog {
-  background-color: var(--color-surface);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-lg);
-  margin: var(--spacing-lg);
-  border-width: var(--border-width-default);
-  border-style: solid;
-  border-color: var(--border-color-default);
-}
-
-.compliance-title {
-  font-size: 18px;
-  font-weight: bold;
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-md);
-}
-
-.compliance-text {
-  font-size: 14px;
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-sm);
-}
-
-.compliance-item {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-bottom: var(--spacing-sm);
-  padding-left: var(--spacing-sm);
-}
-
-.compliance-actions {
-  display: flex;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-lg);
-}
-
-.btn-cancel {
-  flex: 1;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--color-surface);
-  border-width: var(--border-width-default);
-  border-style: solid;
-  border-color: var(--border-color-default);
-  border-radius: var(--radius-sm);
-  text-align: center;
-}
-
-.btn-confirm {
-  flex: 1;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--color-primary);
-  border-radius: var(--radius-sm);
-  text-align: center;
-}
-
-.btn-cancel text {
-  color: var(--color-text-primary);
-  font-size: 14px;
-}
-
-.btn-confirm text {
-  color: var(--color-background);
-  font-size: 14px;
-}
-
-/* 状态栏 */
-.status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-sm) 0;
-  margin-bottom: var(--spacing-md);
-  border-bottom-width: var(--border-width-thin);
-  border-bottom-style: solid;
-  border-bottom-color: var(--border-color-muted);
-}
-
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--color-text-secondary);
-}
-
-.status-indicator.recording .status-dot {
-  background-color: var(--color-primary);
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.status-text {
-  font-size: 14px;
-  color: var(--color-text-primary);
-  font-weight: 500;
-}
-
-.duration {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  font-family: monospace;
-}
-
-/* 问题区域 */
-.question-section {
-  margin-bottom: var(--spacing-md);
-}
-
-.section-label {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-bottom: var(--spacing-sm);
-}
-
-.question-text {
-  font-size: 16px;
-  color: var(--color-text-primary);
-  line-height: 1.5;
-  background-color: var(--color-surface);
-  padding: var(--spacing-md);
-  border-radius: var(--radius-sm);
-  border-left-width: var(--border-width-strong);
-  border-left-style: solid;
-  border-left-color: var(--color-primary);
-}
-
-/* 提示区域 */
-.hints-section {
-  flex: 1;
-  margin-bottom: var(--spacing-md);
-}
-
-.hints-list {
+.summary-card,
+.compliance-card,
+.question-card,
+.hints-card {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: 8px;
+  padding: var(--card-padding, 16px);
+  background-color: var(--color-surface, rgba(255, 255, 255, 0.06));
+  border-width: var(--card-border-width, 2px);
+  border-style: solid;
+  border-color: var(--card-border-color, rgba(64, 255, 94, 0.35));
+  border-radius: var(--radius-md, 12px);
 }
 
-.hint-item {
-  font-size: 14px;
-  color: var(--color-text-primary);
-  background-color: var(--color-surface-highlight);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-sm);
-  border-left-width: var(--border-width-thin);
-  border-left-style: solid;
-  border-left-color: var(--color-primary);
+.page-title,
+.section-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--color-text-primary, #ffffff);
+}
+
+.meta-line,
+.compliance-text,
+.placeholder-text {
+  font-size: 12px;
+  color: var(--color-text-secondary, rgba(255, 255, 255, 0.72));
+}
+
+.question-text,
+.hint-text {
+  font-size: 13px;
+  color: var(--color-text-primary, #ffffff);
+  line-height: 1.35;
+}
+
+.hint-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.hint-bullet {
+  width: 18px;
+  font-size: 12px;
+  color: var(--color-primary, #40ff5e);
 }
 
 .warning-text {
   font-size: 12px;
-  color: var(--color-primary);
-  margin-top: var(--spacing-sm);
-  font-style: italic;
+  color: var(--border-color-warning, #ffd166);
 }
 
-/* 等待状态 */
-.waiting-section {
-  flex: 1;
+.actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: row;
+  gap: 12px;
 }
 
-.waiting-text {
-  font-size: 16px;
-  color: var(--color-text-secondary);
-}
-
-/* 操作按钮 */
-.action-section {
-  padding: var(--spacing-md) 0;
-}
-
-.btn-start {
-  background-color: var(--color-primary);
-  padding: var(--spacing-md);
-  border-radius: var(--radius-md);
+.button-primary,
+.button-secondary,
+.button-danger {
+  flex: 1;
   text-align: center;
-}
-
-.btn-stop {
-  background-color: var(--color-surface);
-  padding: var(--spacing-md);
-  border-radius: var(--radius-md);
-  text-align: center;
-  border-width: var(--border-width-default);
+  padding: 10px 12px;
+  font-size: 14px;
+  border-width: var(--border-width-default, 2px);
   border-style: solid;
-  border-color: var(--border-color-danger);
+  border-radius: var(--radius-md, 12px);
 }
 
-.btn-start .btn-text {
-  color: var(--color-background);
-  font-size: 16px;
-  font-weight: 500;
+.button-primary {
+  background-color: var(--color-primary, #40ff5e);
+  color: #000000;
+  border-color: var(--color-primary, #40ff5e);
 }
 
-.btn-stop .btn-text {
-  color: var(--border-color-danger);
-  font-size: 16px;
-  font-weight: 500;
+.button-secondary {
+  background-color: var(--color-surface, rgba(255, 255, 255, 0.06));
+  color: var(--color-text-primary, #ffffff);
+  border-color: var(--border-color-default, rgba(64, 255, 94, 0.35));
+}
+
+.button-danger {
+  background-color: rgba(255, 90, 90, 0.14);
+  color: #ffffff;
+  border-color: var(--border-color-danger, #ff6b6b);
 }
 </style>

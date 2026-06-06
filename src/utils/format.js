@@ -46,6 +46,14 @@ export function formatScore(score) {
   return Number(score).toFixed(1);
 }
 
+export function calculateAverageScore(scores) {
+  if (!scores) return '0.0';
+  const values = Object.values(scores).filter((value) => typeof value === 'number');
+  if (!values.length) return '0.0';
+  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return formatScore(avg);
+}
+
 /**
  * 截断文本（适合眼镜小屏幕显示）
  * @param {string} text - 原始文本
@@ -67,6 +75,13 @@ export function truncateText(text, maxLength = 50) {
 export function formatHints(hints, maxHints = 6) {
   if (!hints || hints.length === 0) return '暂无提示';
   return hints.slice(0, maxHints).map((hint, index) => `${index + 1}. ${hint}`).join('\n');
+}
+
+export function joinText(items, separator = ' / ') {
+  if (!Array.isArray(items) || !items.length) {
+    return '';
+  }
+  return items.filter(Boolean).join(separator);
 }
 
 /**

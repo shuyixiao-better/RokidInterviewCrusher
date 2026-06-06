@@ -11,11 +11,5 @@
       "width": "device-width"
     }
   },
-  "permissions": [
-    "camera",
-    "microphone",
-    "network",
-    "audio"
-  ],
   "fonts": []
 }
