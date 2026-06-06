@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>吊打面试官 - Rokid AI 面试训练助手</title>
+  <style>
+    /* 全局样式 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    #app {
+      max-width: 400px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background-color: #fff;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+
+    /* 页面通用样式 */
+    .page {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 16px;
+    }
+
+    .header .title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #1890ff;
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: #1890ff;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .footer {
+      padding: 16px 0;
+      border-top: 1px solid #f0f0f0;
+      margin-top: 16px;
+    }
+
+    /* 首页样式 */
+    .home-page .header {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 32px 0;
+    }
+
+    .home-page .title {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .home-page .subtitle {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .menu-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .menu-item:hover {
+      border-color: #1890ff;
+      box-shadow: 0 2px 8px rgba(24,144,255,0.2);
+    }
+
+    .menu-item.primary {
+      background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+      border: none;
+      color: #fff;
+    }
+
+    .menu-item .icon {
+      font-size: 24px;
+      margin-right: 12px;
+    }
+
+    .menu-item .text {
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .menu-item .badge {
+      margin-left: auto;
+      background: #52c41a;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+
+    .latest-record {
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .latest-record h3 {
+      font-size: 14px;
+      color: #52c41a;
+      margin-bottom: 12px;
+    }
+
+    .record-info {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .score-preview {
+      font-size: 14px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    /* 面试页面样式 */
+    .compliance-notice {
+      background: #fff7e6;
+      border: 1px solid #ffd591;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .compliance-notice p {
+      font-size: 12px;
+      color: #d46b08;
+      text-align: center;
+    }
+
+    .status-section {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #f5f5f5;
+      border-radius: 20px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #d9d9d9;
+    }
+
+    .status-dot.recording {
+      background: #ff4d4f;
+      animation: pulse 1s infinite;
+    }
+
+    .status-dot.analyzing {
+      background: #faad14;
+      animation: pulse 1s infinite;
+    }
+
+    .status-dot.waiting {
+      background: #52c41a;
+    }
+
+    .status-dot.completed {
+      background: #1890ff;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .status-text {
+      font-size: 14px;
+      color: #333;
+    }
+
+    .question-section,
+    .hints-section {
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .question-section h3,
+    .hints-section h3 {
+      font-size: 14px;
+      color: #52c41a;
+      margin-bottom: 12px;
+    }
+
+    .question-text {
+      font-size: 16px;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    .question-type {
+      display: inline-block;
+      background: #e6f7ff;
+      color: #1890ff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    .hints-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hint-item {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    .warning {
+      background: #fff7e6;
+      border: 1px solid #ffd591;
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: #d46b08;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .btn-start,
+    .btn-stop {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%);
+      color: #fff;
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%);
+      color: #fff;
+    }
+
+    .timer {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1890ff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 复盘页面样式 */
+    .summary-section {
+      margin-bottom: 24px;
+    }
+
+    .record-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    .overall-summary {
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .overall-summary p {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .scores-section {
+      margin-bottom: 24px;
+    }
+
+    .scores-section h3 {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 16px;
+    }
+
+    .overall-score {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .overall-score .score-value {
+      font-size: 48px;
+      font-weight: bold;
+      color: #1890ff;
+    }
+
+    .overall-score .score-level {
+      display: block;
+      font-size: 14px;
+      color: #52c41a;
+      margin-top: 4px;
+    }
+
+    .score-details {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .score-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .score-label {
+      width: 80px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .score-bar {
+      flex: 1;
+      height: 8px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1890ff 0%, #52c41a 100%);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .score-value {
+      width: 30px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+      text-align: right;
+    }
+
+    .problems-section,
+    .questions-section,
+    .plan-section,
+    .record-info-section {
+      margin-bottom: 24px;
+    }
+
+    .problems-section h3,
+    .questions-section h3,
+    .plan-section h3,
+    .record-info-section h3 {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 16px;
+    }
+
+    .problems-list,
+    .plan-list {
+      list-style: none;
+    }
+
+    .problem-item,
+    .plan-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 12px;
+      background: #fff7e6;
+      border: 1px solid #ffd591;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .problem-icon,
+    .plan-icon {
+      font-size: 16px;
+    }
+
+    .problem-text,
+    .plan-text {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    .questions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .question-card {
+      border: 1px solid #e8e8e8;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .question-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #fafafa;
+      cursor: pointer;
+    }
+
+    .question-number {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1890ff;
+    }
+
+    .question-text {
+      font-size: 14px;
+      color: #333;
+    }
+
+    .question-body {
+      padding: 16px;
+    }
+
+    .answer-summary,
+    .strengths,
+    .weaknesses,
+    .better-answer {
+      margin-bottom: 16px;
+    }
+
+    .answer-summary h4,
+    .strengths h4,
+    .weaknesses h4,
+    .better-answer h4 {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .answer-summary p {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    .strengths ul,
+    .weaknesses ul,
+    .better-answer ul {
+      list-style: none;
+      padding-left: 20px;
+    }
+
+    .strengths li,
+    .weaknesses li,
+    .better-answer li {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.5;
+      margin-bottom: 4px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .info-value {
+      font-size: 14px;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    /* 设置页面样式 */
+    .settings-section {
+      margin-bottom: 24px;
+    }
+
+    .settings-section h3 {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .role-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .role-btn {
+      padding: 8px 16px;
+      border: 1px solid #d9d9d9;
+      border-radius: 20px;
+      background: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .role-btn:hover {
+      border-color: #1890ff;
+      color: #1890ff;
+    }
+
+    .role-btn.active {
+      background: #1890ff;
+      border-color: #1890ff;
+      color: #fff;
+    }
+
+    .tech-stack-container,
+    .keywords-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .selected-tech,
+    .selected-keywords {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tech-tag,
+    .keyword-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      background: #e6f7ff;
+      border: 1px solid #91d5ff;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #1890ff;
+    }
+
+    .remove-tech,
+    .remove-keyword {
+      background: none;
+      border: none;
+      color: #1890ff;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+    }
+
+    .add-tech,
+    .add-keyword {
+      display: flex;
+      gap: 8px;
+    }
+
+    .add-tech input,
+    .add-keyword input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .add-tech button,
+    .add-keyword button {
+      padding: 8px 16px;
+      background: #1890ff;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .suggested-tech {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tech-suggestion {
+      padding: 4px 12px;
+      border: 1px dashed #d9d9d9;
+      border-radius: 4px;
+      background: #fafafa;
+      font-size: 12px;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tech-suggestion:hover {
+      border-color: #1890ff;
+      color: #1890ff;
+    }
+
+    .ai-config {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .config-item label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .config-item input {
+      padding: 8px 12px;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .btn-test {
+      padding: 8px 16px;
+      background: #52c41a;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+
+    .data-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-danger {
+      padding: 8px 16px;
+      background: #ff4d4f;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* 空状态 */
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 0;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .empty-text {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .empty-hint {
+      font-size: 14px;
+      color: #666;
+    }
+
+    /* 版本信息 */
+    .version {
+      text-align: center;
+      font-size: 12px;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import app from './src/app.js';
+
+    // 应用会在 DOMContentLoaded 事件中自动初始化
+    // 如果需要手动初始化，可以调用 app.init()
+  </script>
+</body>
+</html>

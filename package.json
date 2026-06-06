@@ -1,0 +1,27 @@
+{
+  "name": "rokid-interview-crusher",
+  "version": "1.0.0",
+  "description": "基于 Rokid 智能眼镜的 AI 面试训练与复盘辅助工具",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "test": "node --test src/**/*.test.js"
+  },
+  "keywords": [
+    "rokid",
+    "aiui",
+    "interview",
+    "ai",
+    "smart-glasses"
+  ],
+  "author": "RokidInterviewCrusher Team",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^3.3.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
