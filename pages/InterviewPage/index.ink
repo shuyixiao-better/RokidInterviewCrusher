@@ -259,12 +259,15 @@ export default {
 
 <page>
   <view class="container">
-    <view class="summary-card">
-      <text class="page-title">面试训练中</text>
-      <text class="meta-line">状态 {{statusText}}</text>
-      <text class="meta-line">时长 {{duration}}</text>
-      <text class="meta-line">模式 {{modeText}}</text>
-      <text class="meta-line">能力 实时语音识别 + LLM 提示</text>
+    <view class="summary-card summary-card-compact">
+      <view class="summary-top">
+        <text class="page-title compact-title">面试训练中</text>
+        <text class="summary-chip">{{statusText}}</text>
+      </view>
+      <view class="summary-meta-grid">
+        <text class="meta-line compact-meta">时长 {{duration}}</text>
+        <text class="meta-line compact-meta">模式 {{modeText}}</text>
+      </view>
       <text ink:if="{{errorMessage}}" class="error-line">错误 {{errorMessage}}</text>
     </view>
 
@@ -279,33 +282,34 @@ export default {
       </view>
     </view>
 
-    <view ink:if="{{hasStarted}}" class="question-card">
-      <text class="section-title">当前问题</text>
-      <text ink:if="{{currentQuestion}}" class="question-text">{{currentQuestion}}</text>
-      <text ink:else class="placeholder-text">等待问题进入识别流...</text>
-    </view>
-
     <view ink:if="{{hasStarted}}" class="hints-card">
-      <text class="section-title">关键词提示</text>
+      <text class="section-title">面试提示</text>
       <view ink:if="{{hints.length > 0}}">
         <view class="hint-visual-card">
           <view class="hint-visual-top">
-            <text class="hint-type-chip">{{currentQuestionType || '其他'}}</text>
-            <text class="hint-caption">AIUI 提示卡</text>
+            <view class="hint-top-left">
+              <text class="hint-type-chip">{{currentQuestionType || '其他'}}</text>
+              <text class="prompt-question-label">面试官问题</text>
+            </view>
+            <image class="hint-icon-mini" src="{{hintImageSrc}}" mode="aspectFill"></image>
           </view>
-          <image class="hint-cover" src="{{hintImageSrc}}" mode="aspectFill"></image>
+          <text class="prompt-question-text">{{currentQuestion}}</text>
+          <view class="direction-strip">
+            <text class="direction-strip-label">答题方向</text>
+            <text class="direction-strip-text">{{hintSummaryText}}</text>
+          </view>
           <view class="hint-summary-box">
-            <text class="hint-summary-label">答题方向</text>
-            <text class="hint-summary-text">{{hintSummaryText}}</text>
+            <text class="hint-points-label">快速要点</text>
+            <view class="hint-grid">
+              <view class="hint-pill" ink:for="{{hints}}" ink:key="index">
+                <text class="hint-pill-text">{{item}}</text>
+              </view>
+            </view>
           </view>
-        </view>
-        <view class="hint-row" ink:for="{{hints}}" ink:key="index">
-          <text class="hint-bullet">{{index + 1}}</text>
-          <text class="hint-text">{{item}}</text>
         </view>
         <text ink:if="{{warning}}" class="warning-text">{{warning}}</text>
       </view>
-      <text ink:else class="placeholder-text">识别到问题后，这里只展示短提示卡片。</text>
+      <text ink:else class="placeholder-text">等待新问题，识别后直接展示答题提示。</text>
     </view>
 
     <view ink:if="{{hasStarted && canStop}}" class="actions">
@@ -328,7 +332,6 @@ export default {
 
 .summary-card,
 .compliance-card,
-.question-card,
 .hints-card {
   display: flex;
   flex-direction: column;
@@ -341,11 +344,36 @@ export default {
   border-radius: var(--radius-md, 12px);
 }
 
+.summary-card-compact {
+  gap: 6px;
+  padding: 12px 14px;
+}
+
+.summary-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.summary-meta-grid {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .page-title,
 .section-title {
   font-size: 16px;
   font-weight: bold;
   color: #f2f5f3;
+}
+
+.compact-title {
+  font-size: 14px;
 }
 
 .meta-line,
@@ -355,9 +383,22 @@ export default {
   color: #8f9b93;
 }
 
+.compact-meta {
+  font-size: 11px;
+}
+
 .error-line {
   font-size: 12px;
   color: #f2f5f3;
+}
+
+.summary-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: rgba(56, 242, 85, 0.14);
+  color: #46d85f;
+  font-size: 11px;
+  font-weight: bold;
 }
 
 .question-text,
@@ -367,18 +408,34 @@ export default {
   line-height: 1.35;
 }
 
-.hint-row {
+.prompt-question-box {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 2px 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background-color: rgba(56, 242, 85, 0.06);
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(29, 143, 62, 0.55);
+}
+
+.prompt-question-label {
+  font-size: 11px;
+  color: #8f9b93;
+}
+
+.prompt-question-text {
+  font-size: 14px;
+  font-weight: bold;
+  color: #f2f5f3;
+  line-height: 1.35;
 }
 
 .hint-visual-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   padding: 10px;
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(56, 242, 85, 0.14), rgba(56, 242, 85, 0.03));
@@ -392,22 +449,53 @@ export default {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
-.hint-cover {
-  width: 100%;
-  height: 78px;
-  border-radius: 12px;
+.hint-top-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.hint-summary-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.hint-summary-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hint-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
   border-width: 1px;
   border-style: solid;
-  border-color: rgba(29, 143, 62, 0.9);
+  border-color: rgba(29, 143, 62, 0.7);
+}
+
+.hint-icon-mini {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(29, 143, 62, 0.55);
 }
 
 .hint-summary-box {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 2px 0;
+  gap: 6px;
+  padding-top: 2px;
 }
 
 .hint-type-chip {
@@ -433,6 +521,56 @@ export default {
   font-size: 13px;
   color: #f2f5f3;
   line-height: 1.35;
+}
+
+.direction-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background-color: rgba(56, 242, 85, 0.12);
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(56, 242, 85, 0.28);
+}
+
+.direction-strip-label {
+  font-size: 11px;
+  color: #8f9b93;
+}
+
+.direction-strip-text {
+  font-size: 14px;
+  font-weight: bold;
+  color: #f2f5f3;
+  line-height: 1.3;
+}
+
+.hint-points-label {
+  font-size: 11px;
+  color: #8f9b93;
+}
+
+.hint-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hint-pill {
+  padding: 6px 8px;
+  border-radius: 999px;
+  background-color: rgba(56, 242, 85, 0.08);
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(29, 143, 62, 0.45);
+}
+
+.hint-pill-text {
+  font-size: 11px;
+  color: #f2f5f3;
 }
 
 .hint-bullet {
