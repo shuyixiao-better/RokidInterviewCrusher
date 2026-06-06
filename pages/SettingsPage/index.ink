@@ -20,6 +20,8 @@ export default {
     model: '',
     showRolePicker: false,
     roleOptions: TARGET_ROLES,
+    selectedActionIndex: 0,
+    selectedRoleIndex: 0,
   },
 
   onLoad() {
@@ -41,7 +43,10 @@ export default {
   },
 
   showRoleSelector() {
-    this.setData({ showRolePicker: true });
+    this.setData({
+      showRolePicker: true,
+      selectedRoleIndex: 0,
+    });
   },
 
   hideRoleSelector() {
@@ -119,6 +124,92 @@ export default {
       },
     });
   },
+
+  focusRoleSelector() {
+    this.setData({ selectedActionIndex: 0 });
+  },
+
+  focusSaveAction() {
+    this.setData({ selectedActionIndex: 1 });
+  },
+
+  focusClearAction() {
+    this.setData({ selectedActionIndex: 2 });
+  },
+
+  focusCloseRolePicker() {
+    this.setData({ selectedRoleIndex: this.data.roleOptions.length });
+  },
+
+  onKeyDown(event) {
+    const code = event && event.code ? event.code : '';
+
+    if (this.data.showRolePicker) {
+      const maxRoleIndex = this.data.roleOptions.length;
+      if (code === 'ArrowUp' || code === 'ArrowLeft') {
+        this.setData({
+          selectedRoleIndex: Math.max(0, this.data.selectedRoleIndex - 1),
+        });
+        return;
+      }
+
+      if (code === 'ArrowDown' || code === 'ArrowRight') {
+        this.setData({
+          selectedRoleIndex: Math.min(maxRoleIndex, this.data.selectedRoleIndex + 1),
+        });
+        return;
+      }
+
+      if (code === 'Enter') {
+        if (this.data.selectedRoleIndex === this.data.roleOptions.length) {
+          this.hideRoleSelector();
+          return;
+        }
+        const role = this.data.roleOptions[this.data.selectedRoleIndex];
+        this.setData({
+          targetRole: role,
+          showRolePicker: false,
+        });
+        return;
+      }
+
+      if (code === 'Backspace') {
+        this.hideRoleSelector();
+      }
+      return;
+    }
+
+    if (code === 'ArrowUp' || code === 'ArrowLeft') {
+      this.setData({
+        selectedActionIndex: Math.max(0, this.data.selectedActionIndex - 1),
+      });
+      return;
+    }
+
+    if (code === 'ArrowDown' || code === 'ArrowRight') {
+      this.setData({
+        selectedActionIndex: Math.min(2, this.data.selectedActionIndex + 1),
+      });
+      return;
+    }
+
+    if (code === 'Enter') {
+      if (this.data.selectedActionIndex === 0) {
+        this.showRoleSelector();
+        return;
+      }
+      if (this.data.selectedActionIndex === 1) {
+        this.saveSettings();
+        return;
+      }
+      this.clearAllData();
+      return;
+    }
+
+    if (code === 'Backspace') {
+      wx.navigateBack();
+    }
+  },
 };
 </script>
 
@@ -126,7 +217,7 @@ export default {
   <view class="container">
     <view class="section">
       <text class="section-title">目标岗位</text>
-      <view class="role-selector" bindtap="showRoleSelector">
+      <view class="role-selector {{selectedActionIndex === 0 ? 'btn-selected' : ''}}" bindtap="showRoleSelector" bindfocus="focusRoleSelector">
         <text class="value-text">{{targetRole || '请选择岗位'}}</text>
         <text class="value-text">></text>
       </view>
@@ -134,10 +225,10 @@ export default {
 
     <view ink:if="{{showRolePicker}}" class="section">
       <text class="section-title">选择目标岗位</text>
-      <view class="picker-item" ink:for="{{roleOptions}}" ink:key="index" bindtap="selectRole" data-role="{{item}}">
+      <view class="picker-item {{selectedRoleIndex === index ? 'btn-selected' : ''}}" ink:for="{{roleOptions}}" ink:key="index" bindtap="selectRole" data-role="{{item}}">
         <text class="value-text">{{item}}</text>
       </view>
-      <button class="btn-secondary" bindtap="hideRoleSelector">关闭选择</button>
+      <button class="btn-secondary {{selectedRoleIndex === roleOptions.length ? 'btn-selected' : ''}}" bindtap="hideRoleSelector" bindfocus="focusCloseRolePicker">关闭选择</button>
     </view>
 
     <view class="section">
@@ -163,8 +254,8 @@ export default {
     </view>
 
     <view class="actions">
-      <button class="btn-primary" bindtap="saveSettings">保存设置</button>
-      <button class="btn-danger" bindtap="clearAllData">清除所有数据</button>
+      <button class="btn-primary {{selectedActionIndex === 1 ? 'btn-selected-primary' : ''}}" bindtap="saveSettings" bindfocus="focusSaveAction">保存设置</button>
+      <button class="btn-danger {{selectedActionIndex === 2 ? 'btn-selected' : ''}}" bindtap="clearAllData" bindfocus="focusClearAction">清除所有数据</button>
     </view>
   </view>
 </page>
@@ -253,6 +344,16 @@ export default {
   border-width: var(--border-width-default, 2px);
   border-style: solid;
   border-radius: var(--radius-md, 12px);
+}
+
+.btn-selected {
+  border-color: #c8ffd2;
+  box-shadow: 0 0 0 2px rgba(200, 255, 210, 0.2);
+}
+
+.btn-selected-primary {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
 }
 
 .btn-primary {

@@ -21,6 +21,7 @@ export default {
     nextPreparationPlan: [],
     averageScore: '0.0',
     scoreLevel: '需改进',
+    selectedActionIndex: 0,
   },
 
   onLoad() {
@@ -30,7 +31,10 @@ export default {
   loadLatestReview() {
     const record = storageService.getLatestInterviewRecord();
     if (!record || !record.review) {
-      this.setData({ hasRecord: false });
+      this.setData({
+        hasRecord: false,
+        selectedActionIndex: 0,
+      });
       return;
     }
 
@@ -50,6 +54,7 @@ export default {
       nextPreparationPlan: review.nextPreparationPlan || [],
       averageScore,
       scoreLevel: this.getScoreLevel(Number(averageScore)),
+      selectedActionIndex: 0,
     });
   },
 
@@ -78,6 +83,46 @@ export default {
   startNewInterview() {
     wx.navigateTo({ url: '/pages/InterviewPage/index' });
   },
+
+  focusPrimaryAction() {
+    this.setData({ selectedActionIndex: 0 });
+  },
+
+  focusSecondaryAction() {
+    this.setData({ selectedActionIndex: 1 });
+  },
+
+  onKeyDown(event) {
+    const code = event && event.code ? event.code : '';
+    const maxIndex = this.data.hasRecord ? 1 : 0;
+
+    if (code === 'ArrowLeft' || code === 'ArrowUp') {
+      this.setData({
+        selectedActionIndex: Math.max(0, this.data.selectedActionIndex - 1),
+      });
+      return;
+    }
+
+    if (code === 'ArrowRight' || code === 'ArrowDown') {
+      this.setData({
+        selectedActionIndex: Math.min(maxIndex, this.data.selectedActionIndex + 1),
+      });
+      return;
+    }
+
+    if (code === 'Enter') {
+      if (!this.data.hasRecord || this.data.selectedActionIndex === 0) {
+        this.startNewInterview();
+        return;
+      }
+      this.goHome();
+      return;
+    }
+
+    if (code === 'Backspace') {
+      this.goHome();
+    }
+  },
 };
 </script>
 
@@ -86,7 +131,7 @@ export default {
     <view ink:if="{{!hasRecord}}" class="empty-state">
       <text class="empty-title">暂无面试记录</text>
       <text class="empty-text">完成一次面试后即可查看复盘分析</text>
-      <button class="btn-primary" bindtap="startNewInterview">开始面试</button>
+      <button class="btn-primary {{selectedActionIndex === 0 ? 'btn-selected-primary' : ''}}" bindtap="startNewInterview" bindfocus="focusPrimaryAction">开始面试</button>
     </view>
 
     <view ink:if="{{hasRecord}}" class="review-content">
@@ -134,8 +179,8 @@ export default {
       </view>
 
       <view class="actions">
-        <button class="btn-secondary" bindtap="goHome">返回首页</button>
-        <button class="btn-primary" bindtap="startNewInterview">再次面试</button>
+        <button class="btn-secondary {{selectedActionIndex === 1 ? 'btn-selected' : ''}}" bindtap="goHome" bindfocus="focusSecondaryAction">返回首页</button>
+        <button class="btn-primary {{selectedActionIndex === 0 ? 'btn-selected-primary' : ''}}" bindtap="startNewInterview" bindfocus="focusPrimaryAction">再次面试</button>
       </view>
     </view>
   </view>
@@ -212,6 +257,16 @@ export default {
   border-width: var(--border-width-default, 2px);
   border-style: solid;
   border-radius: var(--radius-md, 12px);
+}
+
+.btn-selected {
+  border-color: #c8ffd2;
+  box-shadow: 0 0 0 2px rgba(200, 255, 210, 0.2);
+}
+
+.btn-selected-primary {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
 }
 
 .btn-primary {

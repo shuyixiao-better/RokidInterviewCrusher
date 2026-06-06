@@ -27,6 +27,7 @@ class InterviewService {
     this.currentQuestion = null;
     this.currentHints = null;
     this.userProfile = null;
+    this.lastErrorMessage = '';
 
     // 状态变化回调
     this.onStatusChange = null;
@@ -70,6 +71,14 @@ class InterviewService {
     }
   }
 
+  setLastError(error) {
+    if (!error) {
+      this.lastErrorMessage = '';
+      return;
+    }
+    this.lastErrorMessage = error.message || String(error);
+  }
+
   /**
    * 开始面试
    * @param {Object} userProfile - 用户画像（可选，默认使用已初始化的用户画像）
@@ -79,10 +88,12 @@ class InterviewService {
     const profile = userProfile || this.userProfile;
     if (!profile) {
       console.error('[InterviewService] 未提供用户画像');
+      this.setLastError(new Error('未提供用户画像'));
       return false;
     }
 
     try {
+      this.setLastError('');
       // 初始化面试记录
       this.currentInterview = {
         id: generateId(),
@@ -121,6 +132,7 @@ class InterviewService {
       return true;
     } catch (error) {
       console.error('[InterviewService] 开始面试失败:', error);
+      this.setLastError(error);
       if (this.onError) {
         this.onError(error);
       }
@@ -190,6 +202,7 @@ class InterviewService {
         this.updateStatus(INTERVIEW_STATUS.WAITING);
       } catch (error) {
         console.error('[InterviewService] 生成提示失败:', error);
+        this.setLastError(error);
         if (this.onError) {
           this.onError(error);
         }
@@ -267,6 +280,7 @@ class InterviewService {
       return record;
     } catch (error) {
       console.error('[InterviewService] 结束面试失败:', error);
+      this.setLastError(error);
       if (this.onError) {
         this.onError(error);
       }
@@ -311,6 +325,10 @@ class InterviewService {
     return speechService.getStatus();
   }
 
+  getLastErrorMessage() {
+    return this.lastErrorMessage;
+  }
+
   /**
    * 重置服务状态
    */
@@ -320,6 +338,7 @@ class InterviewService {
     this.questions = [];
     this.currentQuestion = null;
     this.currentHints = null;
+    this.lastErrorMessage = '';
     this._questionRecognizedCallback = null;
     audioService.reset();
     speechService.reset();

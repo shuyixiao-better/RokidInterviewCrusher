@@ -19,10 +19,13 @@ export default {
     currentQuestion: '',
     hints: [],
     warning: '',
+    errorMessage: '',
     duration: '00:00',
     hasStarted: false,
     canStop: false,
     modeText: 'Mock 识别',
+    selectedPreStartAction: 1,
+    isBusy: false,
     complianceLines: [
       '请确保获得面试相关方授权后再录音',
       '仅用于训练、模拟与复盘',
@@ -42,6 +45,13 @@ export default {
   async initInterview() {
     const profile = storageService.getUserProfile();
     await interviewService.init(profile);
+    interviewService.registerCallbacks({
+      onError: (error) => {
+        this.setData({
+          errorMessage: error && error.message ? error.message : String(error),
+        });
+      },
+    });
     const speechStatus = interviewService.getSpeechStatus();
     this.setData({
       modeText: speechStatus.mode === 'native' ? '原生识别' : 'Mock 识别',
@@ -49,16 +59,40 @@ export default {
   },
 
   async startInterview() {
+    if (this.data.isBusy) {
+      return;
+    }
+
+    this.setData({
+      isBusy: true,
+      statusText: '启动中',
+      errorMessage: '',
+    });
+
     const success = await interviewService.startInterview();
     if (!success) {
+      const errorMessage = interviewService.getLastErrorMessage() || '启动面试失败';
+      this.setData({
+        isBusy: false,
+        statusText: '启动失败',
+        errorMessage,
+      });
+      if (typeof wx.showToast === 'function') {
+        wx.showToast({
+          title: '开始失败',
+          icon: 'error',
+        });
+      }
       return;
     }
 
     this.setData({
       hasStarted: true,
       canStop: true,
+      isBusy: false,
       status: INTERVIEW_STATUS.RECORDING,
       statusText: '录音中',
+      errorMessage: '',
     });
     this.startDurationTimer();
     this.listenForQuestions();
@@ -105,25 +139,89 @@ export default {
   },
 
   async endInterview() {
+    if (this.data.isBusy) {
+      return;
+    }
+
     this.stopDurationTimer();
     this.setData({
+      isBusy: true,
       status: INTERVIEW_STATUS.COMPLETED,
       statusText: '生成复盘中',
       canStop: false,
+      errorMessage: '',
     });
 
     const result = await interviewService.endInterview();
     if (result) {
       wx.navigateTo({ url: '/pages/ReviewPage/index' });
+      return;
+    }
+
+    this.setData({
+      isBusy: false,
+      status: INTERVIEW_STATUS.IDLE,
+      statusText: '结束失败',
+      canStop: true,
+      errorMessage: interviewService.getLastErrorMessage() || '结束面试失败',
+    });
+    if (typeof wx.showToast === 'function') {
+      wx.showToast({
+        title: '结束失败',
+        icon: 'error',
+      });
     }
   },
 
   confirmStart() {
+    this.setData({ selectedPreStartAction: 1 });
     this.startInterview();
   },
 
   cancelStart() {
     wx.navigateBack();
+  },
+
+  focusCancel() {
+    this.setData({ selectedPreStartAction: 0 });
+  },
+
+  focusConfirm() {
+    this.setData({ selectedPreStartAction: 1 });
+  },
+
+  onKeyDown(event) {
+    const code = event && event.code ? event.code : '';
+
+    if (!this.data.hasStarted) {
+      if (code === 'ArrowLeft' || code === 'ArrowUp') {
+        this.setData({ selectedPreStartAction: 0 });
+        return;
+      }
+
+      if (code === 'ArrowRight' || code === 'ArrowDown') {
+        this.setData({ selectedPreStartAction: 1 });
+        return;
+      }
+
+      if (code === 'Enter') {
+        if (this.data.selectedPreStartAction === 0) {
+          this.cancelStart();
+          return;
+        }
+        this.confirmStart();
+        return;
+      }
+
+      if (code === 'Backspace') {
+        this.cancelStart();
+      }
+      return;
+    }
+
+    if ((code === 'Enter' || code === 'Backspace') && this.data.canStop) {
+      this.endInterview();
+    }
   },
 
   cleanup() {
@@ -140,6 +238,7 @@ export default {
       <text class="meta-line">状态 {{statusText}}</text>
       <text class="meta-line">时长 {{duration}}</text>
       <text class="meta-line">模式 {{modeText}}</text>
+      <text ink:if="{{errorMessage}}" class="error-line">错误 {{errorMessage}}</text>
     </view>
 
     <view ink:if="{{!hasStarted}}" class="compliance-card">
@@ -148,8 +247,8 @@ export default {
         <text class="compliance-text">{{item}}</text>
       </view>
       <view class="actions">
-        <button class="button-secondary" bindtap="cancelStart">取消</button>
-        <button class="button-primary" bindtap="confirmStart">确认开始</button>
+        <button class="button-secondary {{selectedPreStartAction === 0 ? 'button-selected' : ''}}" bindtap="cancelStart" bindfocus="focusCancel">取消</button>
+        <button class="button-primary {{selectedPreStartAction === 1 ? 'button-selected-primary' : ''}}" bindtap="confirmStart" bindfocus="focusConfirm">确认开始</button>
       </view>
     </view>
 
@@ -218,6 +317,11 @@ export default {
   color: #8f9b93;
 }
 
+.error-line {
+  font-size: 12px;
+  color: #f2f5f3;
+}
+
 .question-text,
 .hint-text {
   font-size: 13px;
@@ -260,6 +364,16 @@ export default {
   border-width: var(--border-width-default, 2px);
   border-style: solid;
   border-radius: var(--radius-md, 12px);
+}
+
+.button-selected {
+  border-color: #c8ffd2;
+  box-shadow: 0 0 0 2px rgba(200, 255, 210, 0.2);
+}
+
+.button-selected-primary {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
 }
 
 .button-primary {
