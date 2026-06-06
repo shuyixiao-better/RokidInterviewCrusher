@@ -1,4 +1,3 @@
-import wx from 'wx';
 import { startMockQuestionStream } from '../mock/mockQuestions.js';
 import mockInterviewTranscript, { getFullTranscriptText } from '../mock/mockInterviewTranscript.js';
 
@@ -8,7 +7,9 @@ import mockInterviewTranscript, { getFullTranscriptText } from '../mock/mockInte
 class SpeechService {
   constructor() {
     this.isRecognizing = false;
+    this.shouldKeepListening = false;
     this.recognitionAdapter = null;
+    this.recognition = null;
     this.onTextCallback = null;
     this.mockStreamStopper = null;
     this.isAvailable = false;
@@ -17,37 +18,81 @@ class SpeechService {
 
   initRecognition() {
     try {
-      if (
-        wx &&
-        wx.speech &&
-        typeof wx.speech.startRecognition === 'function' &&
-        typeof wx.speech.stopRecognition === 'function'
-      ) {
-        this.recognitionAdapter = {
-          async start(onText) {
-            // TODO: 根据 Rokid 实际 ASR 事件协议接入稳定回调。
-            await wx.speech.startRecognition({
-              lang: 'zh-CN',
-              success(result) {
-                if (result && result.text && onText) {
-                  onText(result.text, true);
-                }
-              },
-            });
-          },
-          async stop() {
-            await wx.speech.stopRecognition();
-          },
-        };
-        this.isAvailable = true;
+      this.recognitionAdapter = null;
+      this.recognition = null;
+      this.isAvailable = false;
+
+      if (typeof SpeechRecognition === 'undefined') {
+        console.warn('[SpeechService] 当前环境未检测到 SpeechRecognition，使用 Mock 模式');
         return;
       }
 
-      console.warn('[SpeechService] 当前环境未检测到原生 ASR，使用 Mock 模式');
-      this.isAvailable = false;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'zh-CN';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      this.recognition = recognition;
+
+      recognition.onresult = (event) => {
+        if (!event || !event.results || !event.results.length) {
+          return;
+        }
+
+        const transcripts = [];
+        let hasFinal = false;
+        for (let index = 0; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          const alternative = result && result[0];
+          if (!alternative || !alternative.transcript) {
+            continue;
+          }
+          transcripts.push(alternative.transcript);
+          if (result.isFinal) {
+            hasFinal = true;
+          }
+        }
+
+        const transcript = transcripts.join('').trim();
+        if (transcript && this.onTextCallback) {
+          this.onTextCallback(transcript, hasFinal);
+        }
+      };
+
+      recognition.onend = () => {
+        if (!this.shouldKeepListening) {
+          return;
+        }
+
+        try {
+          recognition.start();
+        } catch (error) {
+          console.error('[SpeechService] 自动重启识别失败:', error);
+          this.isRecognizing = false;
+          this.shouldKeepListening = false;
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('[SpeechService] ASR 错误:', event);
+      };
+
+      this.recognitionAdapter = {
+        async start() {
+          recognition.start();
+        },
+        async stop() {
+          recognition.stop();
+        },
+      };
+      this.isAvailable = true;
+      return;
+
     } catch (error) {
       console.error('[SpeechService] 初始化失败:', error);
       this.isAvailable = false;
+      this.recognition = null;
+      this.recognitionAdapter = null;
     }
   }
 
@@ -56,6 +101,9 @@ class SpeechService {
    * @returns {Promise<boolean>} 是否初始化成功
    */
   async init() {
+    if (!this.isRecognizing) {
+      this.initRecognition();
+    }
     return true;
   }
 
@@ -68,15 +116,13 @@ class SpeechService {
       this.onTextCallback = onText;
 
       if (this.isAvailable && this.recognitionAdapter) {
-        await this.recognitionAdapter.start((text, isFinal) => {
-          if (this.onTextCallback) {
-            this.onTextCallback(text, isFinal);
-          }
-        });
+        this.shouldKeepListening = true;
         this.isRecognizing = true;
+        await this.recognitionAdapter.start();
         return true;
       }
 
+      this.shouldKeepListening = false;
       this.isRecognizing = true;
       this.mockStreamStopper = startMockQuestionStream((question) => {
         if (this.onTextCallback) {
@@ -97,6 +143,9 @@ class SpeechService {
         return false;
       }
 
+      this.shouldKeepListening = false;
+      this.isRecognizing = false;
+
       if (this.recognitionAdapter) {
         await this.recognitionAdapter.stop();
       }
@@ -105,8 +154,6 @@ class SpeechService {
         this.mockStreamStopper();
         this.mockStreamStopper = null;
       }
-
-      this.isRecognizing = false;
       this.onTextCallback = null;
       return true;
     } catch (error) {
@@ -137,6 +184,7 @@ class SpeechService {
 
   reset() {
     this.isRecognizing = false;
+    this.shouldKeepListening = false;
     this.onTextCallback = null;
     if (this.mockStreamStopper) {
       this.mockStreamStopper();
@@ -146,6 +194,12 @@ class SpeechService {
 
   dispose() {
     this.reset();
+    if (this.recognition) {
+      try {
+        this.recognition.abort();
+      } catch (_error) {}
+    }
+    this.recognition = null;
     this.recognitionAdapter = null;
   }
 }

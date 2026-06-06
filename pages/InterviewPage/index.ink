@@ -238,6 +238,7 @@ export default {
       <text class="meta-line">状态 {{statusText}}</text>
       <text class="meta-line">时长 {{duration}}</text>
       <text class="meta-line">模式 {{modeText}}</text>
+      <text class="meta-line">能力 实时语音识别 + LLM 提示</text>
       <text ink:if="{{errorMessage}}" class="error-line">错误 {{errorMessage}}</text>
     </view>
 

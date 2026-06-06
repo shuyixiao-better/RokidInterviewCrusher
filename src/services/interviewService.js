@@ -199,6 +199,11 @@ class InterviewService {
           this._questionRecognizedCallback(text, hints);
         }
 
+        if (hints && Array.isArray(hints.hints) && hints.hints.length > 0) {
+          const ttsText = hints.hints.slice(0, 3).join('，');
+          aiService.speakText(ttsText);
+        }
+
         this.updateStatus(INTERVIEW_STATUS.WAITING);
       } catch (error) {
         console.error('[InterviewService] 生成提示失败:', error);

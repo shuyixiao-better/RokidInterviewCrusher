@@ -20,6 +20,7 @@ import { sleep } from '../utils/format.js';
 class AIService {
   constructor() {
     this.config = null;
+    this.session = null;
   }
 
   /**
@@ -40,6 +41,42 @@ class AIService {
     this.config = storageService.getAIConfig();
   }
 
+  async hasNativeLanguageModel() {
+    try {
+      if (typeof LanguageModel === 'undefined' || typeof LanguageModel.availability !== 'function') {
+        return false;
+      }
+      const status = await LanguageModel.availability();
+      return status === 'available';
+    } catch (error) {
+      console.warn('[AIService] LanguageModel availability 检测失败:', error);
+      return false;
+    }
+  }
+
+  async ensureNativeSession() {
+    if (this.session) {
+      return this.session;
+    }
+
+    const config = this.getConfig();
+    const options = {
+      initialPrompts: [
+        {
+          role: 'system',
+          content: '你是一个专业的面试辅导助手。严格按用户要求输出 JSON，不要输出 JSON 之外的内容。',
+        },
+      ],
+    };
+
+    if (config.model && config.model.trim()) {
+      options.model = config.model.trim();
+    }
+
+    this.session = await LanguageModel.create(options);
+    return this.session;
+  }
+
   /**
    * 检查是否配置了 API Key
    * @returns {boolean}
@@ -57,7 +94,15 @@ class AIService {
   async callLLM(prompt) {
     const config = this.getConfig();
 
-    // 如果没有配置 API Key，返回 Mock 数据
+    if (await this.hasNativeLanguageModel()) {
+      try {
+        const session = await this.ensureNativeSession();
+        return await session.prompt(prompt);
+      } catch (error) {
+        console.error('[AIService] 调用原生 LanguageModel 失败:', error);
+      }
+    }
+
     if (!this.hasApiKey()) {
       console.log('[AIService] 未配置 API Key，使用 Mock 数据');
       await sleep(MOCK_DELAY);
@@ -98,6 +143,28 @@ class AIService {
       console.error('[AIService] 调用大模型失败:', error);
       console.log('[AIService] 降级使用 Mock 数据');
       return this.getMockResponse(prompt);
+    }
+  }
+
+  async speakText(text) {
+    if (!text) {
+      return false;
+    }
+
+    try {
+      if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') {
+        return false;
+      }
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      speechSynthesis.speak(utterance);
+      return true;
+    } catch (error) {
+      console.warn('[AIService] TTS 播放失败:', error);
+      return false;
     }
   }
 
