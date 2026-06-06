@@ -14,6 +14,8 @@ class SpeechService {
     this.mockStreamStopper = null;
     this.isAvailable = false;
     this.lastFinalTranscript = '';
+    this.lastDeliveredTranscript = '';
+    this.liveTranscript = '';
     this.initRecognition();
   }
 
@@ -30,7 +32,7 @@ class SpeechService {
 
       const recognition = new SpeechRecognition();
       recognition.lang = 'zh-CN';
-      recognition.continuous = true;
+      recognition.continuous = false;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
       this.recognition = recognition;
@@ -42,35 +44,43 @@ class SpeechService {
 
         const transcripts = [];
         let hasFinal = false;
-        const startIndex = typeof event.resultIndex === 'number' ? event.resultIndex : 0;
-        for (let index = startIndex; index < event.results.length; index += 1) {
+        for (let index = 0; index < event.results.length; index += 1) {
           const result = event.results[index];
           const alternative = result && result[0];
           if (!alternative || !alternative.transcript) {
             continue;
           }
+          transcripts.push(alternative.transcript);
           if (result.isFinal) {
-            transcripts.push(alternative.transcript);
             hasFinal = true;
           }
         }
 
         const transcript = transcripts.join('').trim();
-        if (!transcript || !hasFinal) {
+        if (!transcript) {
           return;
         }
 
-        if (transcript === this.lastFinalTranscript) {
-          return;
-        }
-
-        this.lastFinalTranscript = transcript;
-        if (this.onTextCallback) {
-          this.onTextCallback(transcript, true);
+        this.liveTranscript = transcript;
+        if (hasFinal) {
+          this.lastFinalTranscript = transcript;
         }
       };
 
       recognition.onend = () => {
+        const transcript = (this.lastFinalTranscript || this.liveTranscript || '').trim();
+        if (
+          transcript &&
+          transcript !== this.lastDeliveredTranscript &&
+          this.onTextCallback
+        ) {
+          this.lastDeliveredTranscript = transcript;
+          this.onTextCallback(transcript, true);
+        }
+
+        this.lastFinalTranscript = '';
+        this.liveTranscript = '';
+
         if (!this.shouldKeepListening) {
           return;
         }
@@ -126,6 +136,8 @@ class SpeechService {
 
       this.onTextCallback = onText;
       this.lastFinalTranscript = '';
+      this.lastDeliveredTranscript = '';
+      this.liveTranscript = '';
 
       if (this.isAvailable && this.recognitionAdapter) {
         this.shouldKeepListening = true;
@@ -199,6 +211,8 @@ class SpeechService {
     this.shouldKeepListening = false;
     this.onTextCallback = null;
     this.lastFinalTranscript = '';
+    this.lastDeliveredTranscript = '';
+    this.liveTranscript = '';
     if (this.mockStreamStopper) {
       this.mockStreamStopper();
       this.mockStreamStopper = null;

@@ -156,35 +156,37 @@ class InterviewService {
    */
   async handleRecognizedText(text, isFinal, userProfile) {
     if (!isFinal) return;
-    const isQuestion = this.isInterviewQuestion(text);
+    const normalizedText = this.normalizeRecognizedText(text);
+    const detectedQuestion = this.extractQuestionText(normalizedText);
+    const isQuestion = !!detectedQuestion;
 
     if (this.currentInterview) {
       this.currentInterview.transcript.push({
         speaker: isQuestion ? 'interviewer' : 'candidate',
         time: Date.now() - this.currentInterview.startTime,
-        text: text,
+        text: normalizedText,
       });
     }
 
     if (isQuestion) {
-      console.log('[InterviewService] 检测到面试问题:', text);
+      console.log('[InterviewService] 检测到面试问题:', detectedQuestion);
 
-      this.currentQuestion = text;
+      this.currentQuestion = detectedQuestion;
       this.updateStatus(INTERVIEW_STATUS.ANALYZING);
 
       // 通知检测到问题
       if (this.onQuestionDetected) {
-        this.onQuestionDetected(text);
+        this.onQuestionDetected(detectedQuestion);
       }
 
       // 调用 AI 生成关键词提示
       try {
-        const hints = await aiService.generateRealtimeHint(text, userProfile);
+        const hints = await aiService.generateRealtimeHint(detectedQuestion, userProfile);
         this.currentHints = hints;
 
         // 保存问题和提示
         this.questions.push({
-          question: text,
+          question: detectedQuestion,
           hints: hints,
           timestamp: Date.now(),
         });
@@ -196,7 +198,7 @@ class InterviewService {
 
         // 调用问题识别回调（InterviewPage 使用）
         if (this._questionRecognizedCallback) {
-          this._questionRecognizedCallback(text, hints);
+          this._questionRecognizedCallback(detectedQuestion, hints);
         }
 
         if (hints && Array.isArray(hints.hints) && hints.hints.length > 0) {
@@ -224,7 +226,38 @@ class InterviewService {
     if (!text || text.length < 4) return false;
 
     // 检查是否包含问题关键词
-    return QUESTION_KEYWORDS.some(keyword => text.includes(keyword));
+    return QUESTION_KEYWORDS.some(keyword => text.includes(keyword)) || /[吗呢\?？]$/.test(text);
+  }
+
+  normalizeRecognizedText(text) {
+    return String(text || '')
+      .replace(/\s+/g, '')
+      .replace(/[。]{2,}/g, '。')
+      .trim();
+  }
+
+  extractQuestionText(text) {
+    if (!text) {
+      return '';
+    }
+
+    const segments = text
+      .split(/[。！？!?；;]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    for (let index = segments.length - 1; index >= 0; index -= 1) {
+      const segment = segments[index];
+      if (this.isInterviewQuestion(segment)) {
+        return segment;
+      }
+    }
+
+    if (this.isInterviewQuestion(text)) {
+      return text;
+    }
+
+    return '';
   }
 
   /**
