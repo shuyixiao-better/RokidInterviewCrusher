@@ -96,3 +96,16 @@ export const DEFAULT_AI_CONFIG = {
 
 // Mock 延迟（毫秒）
 export const MOCK_DELAY = 500;
+
+// 默认配置（用于设置页面）
+export const DEFAULT_CONFIG = {
+  targetRole: 'Java 后端',
+  baseUrl: 'https://api.openai.com/v1',
+  model: 'gpt-3.5-turbo',
+};
+
+// 面试问题关键词（用于问题识别）
+export const INTERVIEW_QUESTION_KEYWORDS = [
+  '什么', '为什么', '如何', '怎么', '介绍一下', '说一下', '讲一下',
+  '你做过', '你了解', '区别', '原理', '场景', '项目', '优化', '排查', '设计',
+];

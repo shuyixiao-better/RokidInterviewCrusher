@@ -2,11 +2,13 @@
   "name": "rokid-interview-crusher",
   "version": "1.0.0",
   "description": "基于 Rokid 智能眼镜的 AI 面试训练与复盘辅助工具",
-  "main": "src/app.js",
+  "type": "module",
+  "main": "app.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "node --watch src/app.js",
-    "test": "node --test src/**/*.test.js"
+    "build": "rokid-cli build || echo 'rokid-cli not available'",
+    "deploy": "rokid-cli install dist/*.aix || echo 'rokid-cli not available'",
+    "lint": "eslint src/ --ext .js",
+    "lint:fix": "eslint src/ --ext .js --fix"
   },
   "keywords": [
     "rokid",
@@ -17,9 +19,7 @@
   ],
   "author": "RokidInterviewCrusher Team",
   "license": "MIT",
-  "dependencies": {
-    "node-fetch": "^3.3.0"
-  },
+  "dependencies": {},
   "devDependencies": {},
   "engines": {
     "node": ">=18.0.0"

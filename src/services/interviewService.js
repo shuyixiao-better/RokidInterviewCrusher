@@ -27,12 +27,26 @@ class InterviewService {
     this.questions = [];
     this.currentQuestion = null;
     this.currentHints = null;
+    this.userProfile = null;
 
     // 状态变化回调
     this.onStatusChange = null;
     this.onQuestionDetected = null;
     this.onHintsGenerated = null;
     this.onError = null;
+
+    // 问题识别回调（用于 InterviewPage）
+    this._questionRecognizedCallback = null;
+  }
+
+  /**
+   * 初始化服务
+   * @param {Object} userProfile - 用户画像
+   */
+  async init(userProfile) {
+    this.userProfile = userProfile || storageService.getUserProfile();
+    await audioService.init();
+    await speechService.init();
   }
 
   /**
@@ -59,18 +73,24 @@ class InterviewService {
 
   /**
    * 开始面试
-   * @param {Object} userProfile - 用户画像
+   * @param {Object} userProfile - 用户画像（可选，默认使用已初始化的用户画像）
    * @returns {Promise<boolean>} 是否开始成功
    */
   async startInterview(userProfile) {
+    const profile = userProfile || this.userProfile;
+    if (!profile) {
+      console.error('[InterviewService] 未提供用户画像');
+      return false;
+    }
+
     try {
       // 初始化面试记录
       this.currentInterview = {
         id: generateId(),
         startTime: Date.now(),
         endTime: null,
-        targetRole: userProfile.targetRole,
-        techStack: userProfile.techStack,
+        targetRole: profile.targetRole,
+        techStack: profile.techStack,
         questions: [],
         transcript: [],
         status: 'recording',
@@ -80,10 +100,6 @@ class InterviewService {
       this.currentQuestion = null;
       this.currentHints = null;
 
-      // 初始化服务
-      await audioService.init();
-      await speechService.init();
-
       // 开始录音
       const audioStarted = await audioService.startRecording();
       if (!audioStarted) {
@@ -92,7 +108,7 @@ class InterviewService {
 
       // 开始实时语音识别
       const speechStarted = await speechService.startRealtimeTranscription(
-        (text, isFinal) => this.handleRecognizedText(text, isFinal, userProfile)
+        (text, isFinal) => this.handleRecognizedText(text, isFinal, profile)
       );
       if (!speechStarted) {
         throw new Error('无法开始语音识别');
@@ -108,6 +124,14 @@ class InterviewService {
       }
       return false;
     }
+  }
+
+  /**
+   * 注册问题识别回调（用于 InterviewPage）
+   * @param {Function} callback - 回调函数，参数为 (question, hintData)
+   */
+  onQuestionRecognized(callback) {
+    this._questionRecognizedCallback = callback;
   }
 
   /**
@@ -156,6 +180,11 @@ class InterviewService {
         // 通知提示已生成
         if (this.onHintsGenerated) {
           this.onHintsGenerated(hints);
+        }
+
+        // 调用问题识别回调（InterviewPage 使用）
+        if (this._questionRecognizedCallback) {
+          this._questionRecognizedCallback(text, hints);
         }
 
         this.updateStatus(INTERVIEW_STATUS.WAITING);
@@ -279,8 +308,18 @@ class InterviewService {
     this.questions = [];
     this.currentQuestion = null;
     this.currentHints = null;
+    this._questionRecognizedCallback = null;
     audioService.reset();
     speechService.reset();
+  }
+
+  /**
+   * 清理资源
+   */
+  cleanup() {
+    this.reset();
+    audioService.dispose();
+    speechService.dispose();
   }
 }
 

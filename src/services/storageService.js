@@ -202,6 +202,13 @@ class StorageService {
     });
   }
 
+  /**
+   * 清空用户配置
+   */
+  clearUserProfile() {
+    this.remove(STORAGE_KEYS.USER_PROFILE);
+  }
+
   // ==================== AI 配置相关 ====================
 
   /**
@@ -222,6 +229,13 @@ class StorageService {
       apiKey: '',
       model: 'gpt-3.5-turbo',
     });
+  }
+
+  /**
+   * 清空 AI 配置
+   */
+  clearAIConfig() {
+    this.remove(STORAGE_KEYS.AI_CONFIG);
   }
 }
 

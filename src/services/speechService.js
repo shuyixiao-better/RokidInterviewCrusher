@@ -214,6 +214,15 @@ class SpeechService {
       this.mockStreamStopper = null;
     }
   }
+
+  /**
+   * 释放资源
+   */
+  dispose() {
+    this.reset();
+    this.recognition = null;
+    this.rokidRecognizer = null;
+  }
 }
 
 // 导出单例
