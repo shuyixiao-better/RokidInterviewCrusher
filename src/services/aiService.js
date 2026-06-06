@@ -176,10 +176,20 @@ class AIService {
    */
   async generateRealtimeHint(question, userProfile) {
     const prompt = generateRealtimeHintPrompt(question, userProfile);
+    const canUseNative = await this.hasNativeLanguageModel();
+
+    if (!canUseNative && !this.hasApiKey()) {
+      return this.getMockHintResponse(question);
+    }
+
     const response = await this.callLLM(prompt);
 
     try {
-      return JSON.parse(response);
+      const parsed = JSON.parse(response);
+      if (this.isValidHintResponse(parsed)) {
+        return parsed;
+      }
+      return this.getMockHintResponse(question);
     } catch (error) {
       console.error('[AIService] 解析提示 JSON 失败:', error);
       return this.getMockHintResponse(question);
@@ -211,12 +221,17 @@ class AIService {
    */
   getMockResponse(prompt) {
     if (prompt.includes('实时面试辅导') || prompt.includes('关键词提示')) {
-      return JSON.stringify(this.getMockHintResponse());
+      return JSON.stringify(this.getMockHintResponse(this.extractQuestionFromPrompt(prompt)));
     }
     if (prompt.includes('复盘') || prompt.includes('面试官')) {
       return JSON.stringify(this.getMockReviewResponse());
     }
     return JSON.stringify({ message: 'Mock 响应' });
+  }
+
+  extractQuestionFromPrompt(prompt = '') {
+    const match = String(prompt).match(/面试官问题：\s*([\s\S]*?)\s*请输出 JSON 格式：/);
+    return match && match[1] ? match[1].trim() : '';
   }
 
   /**
@@ -225,6 +240,46 @@ class AIService {
    * @returns {Object} Mock 提示数据
    */
   getMockHintResponse(question = '') {
+    const normalizedQuestion = String(question || '').toLowerCase();
+
+    if (
+      normalizedQuestion.includes('自我介绍') ||
+      normalizedQuestion.includes('介绍一下你自己') ||
+      normalizedQuestion.includes('介绍下你自己')
+    ) {
+      return {
+        questionType: '行为面试',
+        hints: [
+          '当前岗位一句话定位',
+          '3段式：经历-项目-优势',
+          '贴目标岗位技术栈',
+          '突出代表性结果',
+          '结尾带转岗动机',
+        ],
+        warning: '不要从出生开始讲，控制在1分钟内',
+      };
+    }
+
+    if (
+      normalizedQuestion.includes('线程安全') ||
+      normalizedQuestion.includes('并发') ||
+      normalizedQuestion.includes('synchronized') ||
+      normalizedQuestion.includes('lock') ||
+      normalizedQuestion.includes('volatile')
+    ) {
+      return {
+        questionType: '技术原理',
+        hints: [
+          '先定义什么是线程安全',
+          '再说共享资源场景',
+          '核心手段：锁/原子类',
+          '补充可见性与有序性',
+          '最后讲业务实践案例',
+        ],
+        warning: '不要只背概念，要补实际并发场景',
+      };
+    }
+
     // 根据问题内容返回不同的提示
     if (question.includes('Spring Cloud') || question.includes('微服务')) {
       return {
@@ -278,6 +333,16 @@ class AIService {
       ],
       warning: '',
     };
+  }
+
+  isValidHintResponse(data) {
+    return !!(
+      data &&
+      typeof data === 'object' &&
+      Array.isArray(data.hints) &&
+      data.hints.length > 0 &&
+      typeof data.questionType === 'string'
+    );
   }
 
   /**
