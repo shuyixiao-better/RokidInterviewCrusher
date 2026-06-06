@@ -322,10 +322,12 @@ export default {
 .container {
   display: flex;
   flex-direction: column;
-  width: var(--app-width, 480px);
+  width: 420px;
+  max-width: 420px;
   min-height: var(--app-height-min, 120px);
   max-height: var(--app-height-max, 380px);
-  padding: var(--spacing-md, 16px);
+  box-sizing: border-box;
+  padding: 12px;
   background-color: var(--color-background, #000000);
   gap: 12px;
 }
@@ -335,6 +337,8 @@ export default {
 .hints-card {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
   gap: 8px;
   padding: var(--card-padding, 16px);
   background-color: #060807;

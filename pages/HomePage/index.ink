@@ -166,10 +166,12 @@ export default {
 .container {
   display: flex;
   flex-direction: column;
-  width: var(--app-width, 480px);
+  width: 396px;
+  max-width: 396px;
   min-height: var(--app-height-min, 120px);
   max-height: var(--app-height-max, 380px);
-  padding: var(--spacing-md, 16px);
+  box-sizing: border-box;
+  padding: 12px;
   background-color: var(--color-background, #000000);
   gap: 12px;
 }
@@ -178,8 +180,10 @@ export default {
 .summary-card {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
   gap: 8px;
-  padding: var(--card-padding, 16px);
+  padding: 14px;
   background-color: var(--color-surface, rgba(255, 255, 255, 0.06));
   border-width: var(--card-border-width, 2px);
   border-style: solid;
@@ -188,13 +192,14 @@ export default {
 }
 
 .title {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: bold;
   color: #f5fff7;
+  line-height: 1.05;
 }
 
 .subtitle {
-  font-size: 15px;
+  font-size: 13px;
   color: #d7e0db;
 }
 
@@ -213,8 +218,8 @@ export default {
 
 .menu-button {
   text-align: center;
-  padding: 12px 14px;
-  font-size: 16px;
+  padding: 11px 12px;
+  font-size: 15px;
   font-weight: bold;
   background-color: #060807;
   color: #f2f5f3;
