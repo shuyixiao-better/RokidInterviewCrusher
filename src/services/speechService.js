@@ -13,6 +13,7 @@ class SpeechService {
     this.onTextCallback = null;
     this.mockStreamStopper = null;
     this.isAvailable = false;
+    this.lastFinalTranscript = '';
     this.initRecognition();
   }
 
@@ -41,21 +42,31 @@ class SpeechService {
 
         const transcripts = [];
         let hasFinal = false;
-        for (let index = 0; index < event.results.length; index += 1) {
+        const startIndex = typeof event.resultIndex === 'number' ? event.resultIndex : 0;
+        for (let index = startIndex; index < event.results.length; index += 1) {
           const result = event.results[index];
           const alternative = result && result[0];
           if (!alternative || !alternative.transcript) {
             continue;
           }
-          transcripts.push(alternative.transcript);
           if (result.isFinal) {
+            transcripts.push(alternative.transcript);
             hasFinal = true;
           }
         }
 
         const transcript = transcripts.join('').trim();
-        if (transcript && this.onTextCallback) {
-          this.onTextCallback(transcript, hasFinal);
+        if (!transcript || !hasFinal) {
+          return;
+        }
+
+        if (transcript === this.lastFinalTranscript) {
+          return;
+        }
+
+        this.lastFinalTranscript = transcript;
+        if (this.onTextCallback) {
+          this.onTextCallback(transcript, true);
         }
       };
 
@@ -114,6 +125,7 @@ class SpeechService {
       }
 
       this.onTextCallback = onText;
+      this.lastFinalTranscript = '';
 
       if (this.isAvailable && this.recognitionAdapter) {
         this.shouldKeepListening = true;
@@ -186,6 +198,7 @@ class SpeechService {
     this.isRecognizing = false;
     this.shouldKeepListening = false;
     this.onTextCallback = null;
+    this.lastFinalTranscript = '';
     if (this.mockStreamStopper) {
       this.mockStreamStopper();
       this.mockStreamStopper = null;

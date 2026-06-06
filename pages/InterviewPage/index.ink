@@ -12,18 +12,41 @@ import storageService from '../../src/services/storageService.js';
 import { INTERVIEW_STATUS } from '../../src/utils/constants.js';
 import { formatDuration } from '../../src/utils/format.js';
 
+const HINT_IMAGE_BY_TYPE = {
+  '项目经历': '../../assets/hint-project.svg',
+  '技术原理': '../../assets/hint-technical.svg',
+  '八股基础': '../../assets/hint-technical.svg',
+  '系统设计': '../../assets/hint-design.svg',
+  '行为面试': '../../assets/hint-project.svg',
+  '其他': '../../assets/hint-default.svg',
+};
+
+function getHintImageSrc(questionType) {
+  return HINT_IMAGE_BY_TYPE[questionType] || HINT_IMAGE_BY_TYPE['其他'];
+}
+
+function buildHintSummary(hints) {
+  if (!Array.isArray(hints) || !hints.length) {
+    return '等待识别到新问题后生成提示卡。';
+  }
+  return hints.slice(0, 2).join(' / ');
+}
+
 export default {
   data: {
     status: INTERVIEW_STATUS.IDLE,
     statusText: '准备开始',
     currentQuestion: '',
+    currentQuestionType: '',
     hints: [],
+    hintSummaryText: '',
     warning: '',
     errorMessage: '',
     duration: '00:00',
     hasStarted: false,
     canStop: false,
     modeText: 'Mock 识别',
+    hintImageSrc: '../../assets/hint-default.svg',
     selectedPreStartAction: 1,
     isBusy: false,
     complianceLines: [
@@ -102,8 +125,11 @@ export default {
     interviewService.onQuestionRecognized((question, hintData) => {
       this.setData({
         currentQuestion: question,
+        currentQuestionType: hintData.questionType || '其他',
         hints: hintData.hints || [],
+        hintSummaryText: buildHintSummary(hintData.hints || []),
         warning: hintData.warning || '',
+        hintImageSrc: getHintImageSrc(hintData.questionType || '其他'),
         status: INTERVIEW_STATUS.ANALYZING,
         statusText: '生成提示中',
         canStop: true,
@@ -262,6 +288,17 @@ export default {
     <view ink:if="{{hasStarted}}" class="hints-card">
       <text class="section-title">关键词提示</text>
       <view ink:if="{{hints.length > 0}}">
+        <view class="hint-visual-card">
+          <view class="hint-visual-top">
+            <text class="hint-type-chip">{{currentQuestionType || '其他'}}</text>
+            <text class="hint-caption">AIUI 提示卡</text>
+          </view>
+          <image class="hint-cover" src="{{hintImageSrc}}" mode="aspectFill"></image>
+          <view class="hint-summary-box">
+            <text class="hint-summary-label">答题方向</text>
+            <text class="hint-summary-text">{{hintSummaryText}}</text>
+          </view>
+        </view>
         <view class="hint-row" ink:for="{{hints}}" ink:key="index">
           <text class="hint-bullet">{{index + 1}}</text>
           <text class="hint-text">{{item}}</text>
@@ -335,6 +372,67 @@ export default {
   flex-direction: row;
   align-items: flex-start;
   gap: 8px;
+  padding: 2px 0;
+}
+
+.hint-visual-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(56, 242, 85, 0.14), rgba(56, 242, 85, 0.03));
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(200, 255, 210, 0.28);
+}
+
+.hint-visual-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hint-cover {
+  width: 100%;
+  height: 78px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(29, 143, 62, 0.9);
+}
+
+.hint-summary-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.hint-type-chip {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 999px;
+  background-color: rgba(56, 242, 85, 0.18);
+  color: #46d85f;
+}
+
+.hint-caption {
+  font-size: 11px;
+  color: #8f9b93;
+}
+
+.hint-summary-label {
+  font-size: 11px;
+  color: #8f9b93;
+}
+
+.hint-summary-text {
+  font-size: 13px;
+  color: #f2f5f3;
+  line-height: 1.35;
 }
 
 .hint-bullet {
