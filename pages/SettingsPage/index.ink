@@ -186,10 +186,10 @@ export default {
   flex-direction: column;
   gap: 8px;
   padding: var(--card-padding, 16px);
-  background-color: var(--color-surface, rgba(255, 255, 255, 0.06));
+  background-color: #060807;
   border-width: var(--border-width-thin, 1px);
   border-style: solid;
-  border-color: var(--border-color-default, rgba(64, 255, 94, 0.35));
+  border-color: #1d8f3e;
   border-radius: var(--radius-md, 12px);
 }
 
@@ -197,13 +197,13 @@ export default {
 .field-label {
   font-size: 14px;
   font-weight: bold;
-  color: var(--color-text-primary, #ffffff);
+  color: #f2f5f3;
 }
 
 .section-note,
 .value-text {
   font-size: 12px;
-  color: var(--color-text-secondary, rgba(255, 255, 255, 0.72));
+  color: #8f9b93;
 }
 
 .role-selector,
@@ -215,7 +215,7 @@ export default {
   padding: 10px 12px;
   border-width: var(--border-width-default, 2px);
   border-style: solid;
-  border-color: var(--border-color-default, rgba(64, 255, 94, 0.35));
+  border-color: #1d8f3e;
   border-radius: var(--radius-md, 12px);
 }
 
@@ -226,10 +226,10 @@ export default {
   padding: var(--input-padding-y, 10px) var(--input-padding-x, 14px);
   border-width: var(--input-border-width, 1px);
   border-style: solid;
-  border-color: var(--input-border-color, rgba(64, 255, 94, 0.35));
+  border-color: #707770;
   border-radius: var(--input-radius, 8px);
-  background-color: var(--input-background-color, rgba(255, 255, 255, 0.04));
-  color: var(--color-text-primary, #ffffff);
+  background-color: #0c100d;
+  color: #f2f5f3;
   font-size: 13px;
 }
 
@@ -249,26 +249,27 @@ export default {
   text-align: center;
   padding: 10px 12px;
   font-size: 14px;
+  font-weight: bold;
   border-width: var(--border-width-default, 2px);
   border-style: solid;
   border-radius: var(--radius-md, 12px);
 }
 
 .btn-primary {
-  background-color: var(--color-primary, #40ff5e);
-  color: #000000;
-  border-color: var(--color-primary, #40ff5e);
+  background-color: #38f255;
+  color: #041006;
+  border-color: #c8ffd2;
 }
 
 .btn-secondary {
-  background-color: var(--color-surface, rgba(255, 255, 255, 0.06));
-  color: var(--color-text-primary, #ffffff);
-  border-color: var(--border-color-default, rgba(64, 255, 94, 0.35));
+  background-color: #060807;
+  color: #f2f5f3;
+  border-color: #1d8f3e;
 }
 
 .btn-danger {
-  background-color: rgba(255, 90, 90, 0.14);
-  color: #ffffff;
-  border-color: var(--border-color-danger, #ff6b6b);
+  background-color: #1a0d0d;
+  color: #f2f5f3;
+  border-color: #707770;
 }
 </style>

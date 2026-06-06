@@ -164,10 +164,10 @@ export default {
   flex-direction: column;
   gap: 8px;
   padding: var(--card-padding, 16px);
-  background-color: var(--color-surface, rgba(255, 255, 255, 0.06));
+  background-color: #060807;
   border-width: var(--border-width-thin, 1px);
   border-style: solid;
-  border-color: var(--border-color-default, rgba(64, 255, 94, 0.35));
+  border-color: #1d8f3e;
   border-radius: var(--radius-md, 12px);
 }
 
@@ -176,19 +176,19 @@ export default {
 .question-title {
   font-size: 14px;
   font-weight: bold;
-  color: var(--color-text-primary, #ffffff);
+  color: #f2f5f3;
 }
 
 .empty-text,
 .card-line,
 .score-level {
   font-size: 12px;
-  color: var(--color-text-secondary, rgba(255, 255, 255, 0.72));
+  color: #8f9b93;
 }
 
 .score-number {
   font-size: 28px;
-  color: var(--color-primary, #40ff5e);
+  color: #46d85f;
 }
 
 .question-item,
@@ -208,20 +208,21 @@ export default {
   text-align: center;
   padding: 10px 12px;
   font-size: 14px;
+  font-weight: bold;
   border-width: var(--border-width-default, 2px);
   border-style: solid;
   border-radius: var(--radius-md, 12px);
 }
 
 .btn-primary {
-  background-color: var(--color-primary, #40ff5e);
-  color: #000000;
-  border-color: var(--color-primary, #40ff5e);
+  background-color: #38f255;
+  color: #041006;
+  border-color: #c8ffd2;
 }
 
 .btn-secondary {
-  background-color: var(--color-surface, rgba(255, 255, 255, 0.06));
-  color: var(--color-text-primary, #ffffff);
-  border-color: var(--border-color-default, rgba(64, 255, 94, 0.35));
+  background-color: #060807;
+  color: #f2f5f3;
+  border-color: #1d8f3e;
 }
 </style>

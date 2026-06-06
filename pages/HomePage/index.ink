@@ -16,6 +16,8 @@ export default {
     appName: APP_CONFIG.name,
     subtitle: APP_CONFIG.subtitle,
     version: APP_CONFIG.version,
+    selectedIndex: 0,
+    selectedActionText: '开始面试',
     hasLatestRecord: false,
     latestRecord: {
       date: '',
@@ -30,6 +32,10 @@ export default {
   },
 
   onShow() {
+    this.setData({
+      selectedIndex: 0,
+      selectedActionText: '开始面试',
+    });
     this.loadLatestRecord();
   },
 
@@ -62,6 +68,62 @@ export default {
   openSettings() {
     wx.navigateTo({ url: '/pages/SettingsPage/index' });
   },
+
+  setSelectedIndex(index) {
+    const labels = ['开始面试', '查看复盘', '设置'];
+    const nextIndex = Math.max(0, Math.min(index, labels.length - 1));
+    this.setData({
+      selectedIndex: nextIndex,
+      selectedActionText: labels[nextIndex],
+    });
+  },
+
+  activateSelected() {
+    if (this.data.selectedIndex === 0) {
+      this.startInterview();
+      return;
+    }
+    if (this.data.selectedIndex === 1) {
+      this.viewReview();
+      return;
+    }
+    this.openSettings();
+  },
+
+  focusStart() {
+    this.setSelectedIndex(0);
+  },
+
+  focusReview() {
+    this.setSelectedIndex(1);
+  },
+
+  focusSettings() {
+    this.setSelectedIndex(2);
+  },
+
+  onKeyDown(event) {
+    const code = event && event.code ? event.code : '';
+
+    if (code === 'ArrowUp') {
+      this.setSelectedIndex(this.data.selectedIndex - 1);
+      return;
+    }
+
+    if (code === 'ArrowDown') {
+      this.setSelectedIndex(this.data.selectedIndex + 1);
+      return;
+    }
+
+    if (code === 'Enter') {
+      this.activateSelected();
+      return;
+    }
+
+    if (code === 'Backspace' && typeof wx.exitMiniProgram === 'function') {
+      wx.exitMiniProgram();
+    }
+  },
 };
 </script>
 
@@ -74,9 +136,9 @@ export default {
     </view>
 
     <view class="menu-list">
-      <button class="menu-button primary" bindtap="startInterview">开始面试</button>
-      <button class="menu-button" bindtap="viewReview">查看复盘</button>
-      <button class="menu-button" bindtap="openSettings">设置</button>
+      <button class="menu-button {{selectedIndex === 0 ? 'selected primary' : ''}}" bindtap="startInterview" bindfocus="focusStart">开始面试</button>
+      <button class="menu-button {{selectedIndex === 1 ? 'selected' : ''}}" bindtap="viewReview" bindfocus="focusReview">查看复盘</button>
+      <button class="menu-button {{selectedIndex === 2 ? 'selected' : ''}}" bindtap="openSettings" bindfocus="focusSettings">设置</button>
     </view>
 
     <view ink:if="{{hasLatestRecord}}" class="summary-card">
@@ -95,7 +157,7 @@ export default {
 
     <view class="footer">
       <text class="version">v{{version}}</text>
-      <text class="footer-text">Rokid AI 面试训练助手</text>
+      <text class="footer-text">当前焦点 {{selectedActionText}}</text>
     </view>
   </view>
 </page>
@@ -128,19 +190,19 @@ export default {
 .title {
   font-size: 28px;
   font-weight: bold;
-  color: var(--color-primary, #40ff5e);
+  color: #f5fff7;
 }
 
 .subtitle {
   font-size: 15px;
-  color: var(--color-text-primary, #ffffff);
+  color: #d7e0db;
 }
 
 .hero-note,
 .card-line,
 .footer-text {
   font-size: 12px;
-  color: var(--color-text-secondary, rgba(255, 255, 255, 0.72));
+  color: #8f9b93;
 }
 
 .menu-list {
@@ -153,24 +215,33 @@ export default {
   text-align: center;
   padding: 12px 14px;
   font-size: 16px;
-  background-color: var(--color-surface, rgba(255, 255, 255, 0.06));
-  color: var(--color-text-primary, #ffffff);
+  font-weight: bold;
+  background-color: #060807;
+  color: #f2f5f3;
   border-width: var(--border-width-default, 2px);
   border-style: solid;
-  border-color: var(--border-color-default, rgba(64, 255, 94, 0.35));
+  border-color: #1d8f3e;
   border-radius: var(--radius-md, 12px);
 }
 
-.menu-button.primary {
-  background-color: var(--color-primary, #40ff5e);
-  color: #000000;
-  border-color: var(--color-primary, #40ff5e);
+.menu-button.selected {
+  background-color: #38f255;
+  color: #041006;
+  border-color: #c8ffd2;
+  box-shadow: 0 0 0 2px rgba(200, 255, 210, 0.2);
+}
+
+.menu-button.primary,
+.menu-button.selected.primary {
+  background-color: #38f255;
+  color: #041006;
+  border-color: #c8ffd2;
 }
 
 .card-title {
   font-size: 14px;
   font-weight: bold;
-  color: var(--color-text-primary, #ffffff);
+  color: #f2f5f3;
 }
 
 .footer {
@@ -182,6 +253,6 @@ export default {
 
 .version {
   font-size: 12px;
-  color: var(--color-primary-60, rgba(64, 255, 94, 0.6));
+  color: #46d85f;
 }
 </style>
