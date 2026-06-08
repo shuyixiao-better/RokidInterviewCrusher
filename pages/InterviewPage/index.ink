@@ -32,6 +32,46 @@ function buildHintSummary(hints) {
   return hints.slice(0, 2).join(' / ');
 }
 
+function getPhaseConfig(status, hasQuestion) {
+  if (status === INTERVIEW_STATUS.ANALYZING) {
+    return {
+      phaseText: '生成提示',
+      phaseHint: '已识别到问题，正在整理答题思路',
+      progressWidth: '74%',
+    };
+  }
+
+  if (status === INTERVIEW_STATUS.RECORDING && hasQuestion) {
+    return {
+      phaseText: '继续监听',
+      phaseHint: '本轮提示已生成，等待下一问',
+      progressWidth: '100%',
+    };
+  }
+
+  if (status === INTERVIEW_STATUS.RECORDING) {
+    return {
+      phaseText: '等待提问',
+      phaseHint: '正在持续监听面试官问题',
+      progressWidth: '36%',
+    };
+  }
+
+  if (status === INTERVIEW_STATUS.COMPLETED) {
+    return {
+      phaseText: '复盘生成',
+      phaseHint: '正在整理完整面试记录',
+      progressWidth: '100%',
+    };
+  }
+
+  return {
+    phaseText: '准备开始',
+    phaseHint: '点击开始后进入实时问答模式',
+    progressWidth: '12%',
+  };
+}
+
 export default {
   data: {
     status: INTERVIEW_STATUS.IDLE,
@@ -49,6 +89,10 @@ export default {
     hintImageSrc: '../../assets/hint-default.svg',
     selectedPreStartAction: 1,
     isBusy: false,
+    questionCount: 0,
+    phaseText: '准备开始',
+    phaseHint: '点击开始后进入实时问答模式',
+    progressWidth: '12%',
     complianceLines: [
       '请确保获得面试相关方授权后再录音',
       '仅用于训练、模拟与复盘',
@@ -69,6 +113,15 @@ export default {
     const profile = storageService.getUserProfile();
     await interviewService.init(profile);
     interviewService.registerCallbacks({
+      onStatusChange: (status) => {
+        this.setPhase(status, !!this.data.currentQuestion);
+      },
+      onQuestionDetected: (question) => {
+        this.setData({
+          currentQuestion: question,
+        });
+        this.setPhase(INTERVIEW_STATUS.ANALYZING, true);
+      },
       onError: (error) => {
         this.setData({
           errorMessage: error && error.message ? error.message : String(error),
@@ -78,6 +131,16 @@ export default {
     const speechStatus = interviewService.getSpeechStatus();
     this.setData({
       modeText: speechStatus.mode === 'native' ? '原生识别' : 'Mock 识别',
+    });
+  },
+
+  setPhase(status, hasQuestion) {
+    const phase = getPhaseConfig(status, hasQuestion);
+    this.setData({
+      status,
+      phaseText: phase.phaseText,
+      phaseHint: phase.phaseHint,
+      progressWidth: phase.progressWidth,
     });
   },
 
@@ -116,7 +179,9 @@ export default {
       status: INTERVIEW_STATUS.RECORDING,
       statusText: '录音中',
       errorMessage: '',
+      questionCount: 0,
     });
+    this.setPhase(INTERVIEW_STATUS.RECORDING, false);
     this.startDurationTimer();
     this.listenForQuestions();
   },
@@ -130,18 +195,19 @@ export default {
         hintSummaryText: buildHintSummary(hintData.hints || []),
         warning: hintData.warning || '',
         hintImageSrc: getHintImageSrc(hintData.questionType || '其他'),
-        status: INTERVIEW_STATUS.ANALYZING,
         statusText: '生成提示中',
         canStop: true,
+        questionCount: this.data.questionCount + 1,
       });
+      this.setPhase(INTERVIEW_STATUS.ANALYZING, true);
 
       setTimeout(() => {
         if (this.data.status === INTERVIEW_STATUS.ANALYZING) {
           this.setData({
-            status: INTERVIEW_STATUS.RECORDING,
             statusText: '录音中',
             canStop: true,
           });
+          this.setPhase(INTERVIEW_STATUS.RECORDING, true);
         }
       }, 1200);
     });
@@ -172,11 +238,11 @@ export default {
     this.stopDurationTimer();
     this.setData({
       isBusy: true,
-      status: INTERVIEW_STATUS.COMPLETED,
       statusText: '生成复盘中',
       canStop: false,
       errorMessage: '',
     });
+    this.setPhase(INTERVIEW_STATUS.COMPLETED, !!this.data.currentQuestion);
 
     const result = await interviewService.endInterview();
     if (result) {
@@ -186,11 +252,11 @@ export default {
 
     this.setData({
       isBusy: false,
-      status: INTERVIEW_STATUS.IDLE,
       statusText: '结束失败',
       canStop: true,
       errorMessage: interviewService.getLastErrorMessage() || '结束面试失败',
     });
+    this.setPhase(INTERVIEW_STATUS.RECORDING, !!this.data.currentQuestion);
     if (typeof wx.showToast === 'function') {
       wx.showToast({
         title: '结束失败',
@@ -267,6 +333,16 @@ export default {
       <view class="summary-meta-grid">
         <text class="meta-line compact-meta">时长 {{duration}}</text>
         <text class="meta-line compact-meta">模式 {{modeText}}</text>
+        <text class="meta-line compact-meta">已识别 {{questionCount}} 问</text>
+      </view>
+      <view class="progress-block">
+        <view class="progress-header">
+          <text class="progress-title">{{phaseText}}</text>
+          <text class="progress-note">{{phaseHint}}</text>
+        </view>
+        <view class="progress-track">
+          <view class="progress-fill" style="width: {{progressWidth}};"></view>
+        </view>
       </view>
       <text ink:if="{{errorMessage}}" class="error-line">错误 {{errorMessage}}</text>
     </view>
@@ -367,6 +443,43 @@ export default {
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
+}
+
+.progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.progress-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #f2f5f3;
+}
+
+.progress-note {
+  font-size: 11px;
+  color: #8f9b93;
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1d8f3e, #38f255);
 }
 
 .page-title,

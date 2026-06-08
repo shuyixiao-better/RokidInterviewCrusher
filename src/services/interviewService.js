@@ -113,13 +113,17 @@ class InterviewService {
       this.currentQuestion = null;
       this.currentHints = null;
 
-      // 开始录音
-      const audioStarted = await audioService.startRecording();
-      if (!audioStarted) {
-        throw new Error('无法开始录音');
+      const speechStatus = speechService.getStatus();
+      const prefersAsrContinuity = speechStatus.mode === 'native';
+
+      // 优先保证原生 ASR 连续可用，避免与 RecorderManager 争抢麦克风。
+      if (!prefersAsrContinuity) {
+        const audioStarted = await audioService.startRecording();
+        if (!audioStarted) {
+          throw new Error('无法开始录音');
+        }
       }
 
-      // 开始实时语音识别
       const speechStarted = await speechService.startRealtimeTranscription(
         (text, isFinal) => this.handleRecognizedText(text, isFinal, profile)
       );
@@ -199,11 +203,6 @@ class InterviewService {
         // 调用问题识别回调（InterviewPage 使用）
         if (this._questionRecognizedCallback) {
           this._questionRecognizedCallback(detectedQuestion, hints);
-        }
-
-        if (hints && Array.isArray(hints.hints) && hints.hints.length > 0) {
-          const ttsText = hints.hints.slice(0, 3).join('，');
-          aiService.speakText(ttsText);
         }
 
         this.updateStatus(INTERVIEW_STATUS.WAITING);

@@ -16,11 +16,58 @@ class SpeechService {
     this.lastFinalTranscript = '';
     this.lastDeliveredTranscript = '';
     this.liveTranscript = '';
-    this.initRecognition();
+    this.restartTimer = null;
+  }
+
+  clearRestartTimer() {
+    if (!this.restartTimer) {
+      return;
+    }
+    clearTimeout(this.restartTimer);
+    this.restartTimer = null;
+  }
+
+  scheduleRestart() {
+    if (!this.shouldKeepListening || !this.isRecognizing) {
+      return;
+    }
+
+    this.clearRestartTimer();
+    this.restartTimer = setTimeout(() => {
+      if (!this.shouldKeepListening || !this.isRecognizing) {
+        return;
+      }
+      this.initRecognition();
+      if (!this.recognitionAdapter) {
+        this.isRecognizing = false;
+        this.shouldKeepListening = false;
+        return;
+      }
+      this.recognitionAdapter.start().catch((error) => {
+        console.error('[SpeechService] 重建识别器后启动失败:', error);
+        this.isRecognizing = false;
+        this.shouldKeepListening = false;
+      });
+    }, 180);
+  }
+
+  disposeRecognition() {
+    if (!this.recognition) {
+      return;
+    }
+    try {
+      this.recognition.onresult = null;
+      this.recognition.onend = null;
+      this.recognition.onerror = null;
+      this.recognition.abort();
+    } catch (_error) {}
+    this.recognition = null;
+    this.recognitionAdapter = null;
   }
 
   initRecognition() {
     try {
+      this.disposeRecognition();
       this.recognitionAdapter = null;
       this.recognition = null;
       this.isAvailable = false;
@@ -64,6 +111,13 @@ class SpeechService {
         this.liveTranscript = transcript;
         if (hasFinal) {
           this.lastFinalTranscript = transcript;
+          if (
+            transcript !== this.lastDeliveredTranscript &&
+            this.onTextCallback
+          ) {
+            this.lastDeliveredTranscript = transcript;
+            this.onTextCallback(transcript, true);
+          }
         }
       };
 
@@ -85,17 +139,14 @@ class SpeechService {
           return;
         }
 
-        try {
-          recognition.start();
-        } catch (error) {
-          console.error('[SpeechService] 自动重启识别失败:', error);
-          this.isRecognizing = false;
-          this.shouldKeepListening = false;
-        }
+        this.scheduleRestart();
       };
 
       recognition.onerror = (event) => {
         console.error('[SpeechService] ASR 错误:', event);
+        if (this.shouldKeepListening && this.isRecognizing) {
+          this.scheduleRestart();
+        }
       };
 
       this.recognitionAdapter = {
@@ -138,6 +189,11 @@ class SpeechService {
       this.lastFinalTranscript = '';
       this.lastDeliveredTranscript = '';
       this.liveTranscript = '';
+      this.clearRestartTimer();
+
+      if (!this.recognitionAdapter) {
+        this.initRecognition();
+      }
 
       if (this.isAvailable && this.recognitionAdapter) {
         this.shouldKeepListening = true;
@@ -169,6 +225,7 @@ class SpeechService {
 
       this.shouldKeepListening = false;
       this.isRecognizing = false;
+      this.clearRestartTimer();
 
       if (this.recognitionAdapter) {
         await this.recognitionAdapter.stop();
@@ -213,6 +270,7 @@ class SpeechService {
     this.lastFinalTranscript = '';
     this.lastDeliveredTranscript = '';
     this.liveTranscript = '';
+    this.clearRestartTimer();
     if (this.mockStreamStopper) {
       this.mockStreamStopper();
       this.mockStreamStopper = null;
@@ -221,13 +279,7 @@ class SpeechService {
 
   dispose() {
     this.reset();
-    if (this.recognition) {
-      try {
-        this.recognition.abort();
-      } catch (_error) {}
-    }
-    this.recognition = null;
-    this.recognitionAdapter = null;
+    this.disposeRecognition();
   }
 }
 
